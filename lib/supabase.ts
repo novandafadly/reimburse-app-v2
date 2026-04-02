@@ -7,6 +7,28 @@ export function createClient() {
   )
 }
 
+export type Profile = {
+  id: string
+  nama: string | null
+  bank: string | null
+  no_rekening: string | null
+}
+
+export type Penalangging = {
+  id: string
+  nama: string
+  bank: string
+  no_rekening: string
+  aktif: boolean
+}
+
+export type Kategori = 'makan_minum' | 'rapat_pertemuan'
+
+export const KATEGORI_LABEL: Record<Kategori, string> = {
+  makan_minum: 'Makan & Minum',
+  rapat_pertemuan: 'Rapat & Pertemuan',
+}
+
 export type Transaksi = {
   id: string
   tanggal: string
@@ -16,6 +38,11 @@ export type Transaksi = {
   submitted_by: string | null
   submitted_at: string
   created_at: string
+  dibayar_oleh: string | null
+  bank_penalangging: string | null
+  no_rek_penalangging: string | null
+  status: 'belum' | 'proses' | 'selesai'
+  kategori: Kategori
   lampiran?: Lampiran[]
 }
 
