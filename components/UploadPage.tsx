@@ -1,7 +1,6 @@
-'use client'
-
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 import Navbar from '@/components/Navbar'
+import { createClient, type Penalangging, type Kategori, KATEGORI_LABEL } from '@/lib/supabase'
 import type { NotaEntry, ParsedNota } from '@/lib/types'
 
 function generateId() { return Math.random().toString(36).slice(2, 9) }
@@ -37,17 +36,35 @@ function ConfidenceBadge({ level }: { level: string }) {
 }
 
 export default function UploadPage({ email }: { email?: string }) {
+  const supabase = createClient()
   const [entries, setEntries] = useState<NotaEntry[]>([])
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
   const [submitError, setSubmitError] = useState('')
   const [dragging, setDragging] = useState(false)
+  const [penalanggingList, setPenalanggingList] = useState<Penalangging[]>([])
+  const [selectedPenalangging, setSelectedPenalangging] = useState<string>('')
+  const [kategori, setKategori] = useState<Kategori>('makan_minum')
   const dropRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    supabase.from('penalangging').select('*').eq('aktif', true).order('nama')
+      .then(({ data }) => {
+        if (data) setPenalanggingList(data)
+      })
+  }, [])
+
+  const selectedInfo = penalanggingList.find(p => p.id === selectedPenalangging)
 
   const addEntry = useCallback(async (files: File[]) => {
     if (!files.length) return
     const compressed = await Promise.all(files.map(f => compressImage(f)))
-    const entry: NotaEntry = { id: generateId(), files: compressed, previews: compressed.map(f => URL.createObjectURL(f)), status: 'idle' }
+    const entry: NotaEntry = {
+      id: generateId(),
+      files: compressed,
+      previews: compressed.map(f => URL.createObjectURL(f)),
+      status: 'idle'
+    }
     setEntries(prev => [...prev, entry])
     parseEntry(entry)
   }, [])
@@ -89,7 +106,17 @@ export default function UploadPage({ email }: { email?: string }) {
     const formData = new FormData()
     const payload = entries.filter(e => e.status === 'done').map((e, i) => {
       e.files.forEach(f => formData.append(`files_${i}`, f))
-      return { tanggal: e.edited?.tanggal || '', keterangan: e.edited?.keterangan || '', jumlah: Number(e.edited?.jumlah) || 0, deskripsi: e.edited?.deskripsi || '', fileCount: e.files.length }
+      return {
+        tanggal: e.edited?.tanggal || '',
+        keterangan: e.edited?.keterangan || '',
+        jumlah: Number(e.edited?.jumlah) || 0,
+        deskripsi: e.edited?.deskripsi || '',
+        fileCount: e.files.length,
+        kategori,
+        dibayar_oleh: selectedInfo?.nama || null,
+        bank_penalangging: selectedInfo?.bank || null,
+        no_rek_penalangging: selectedInfo?.no_rekening || null,
+      }
     })
     formData.append('entries', JSON.stringify(payload))
     try {
@@ -110,7 +137,10 @@ export default function UploadPage({ email }: { email?: string }) {
           <div style={{ fontSize: 56, marginBottom: 16 }}>✓</div>
           <h2 style={{ fontSize: 26, marginBottom: 8, color: '#166534' }}>Berhasil disimpan!</h2>
           <p style={{ color: '#6b7280', marginBottom: 4 }}>{entries.filter(e => e.status === 'done').length} nota · {formatRupiah(totalAmount)}</p>
-          <p style={{ color: '#9ca3af', fontSize: 14, marginBottom: 32 }}>Data & foto sudah tersimpan. Lihat di menu Rekap.</p>
+          <p style={{ color: '#9ca3af', fontSize: 13, marginBottom: 4 }}>
+            Kategori: {KATEGORI_LABEL[kategori]} · Penalangging: {selectedInfo?.nama || '-'}
+          </p>
+          <p style={{ color: '#9ca3af', fontSize: 14, marginBottom: 32 }}>Data & foto sudah tersimpan.</p>
           <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
             <button onClick={() => { setEntries([]); setSubmitted(false) }} style={s.btnSecondary}>Upload lagi</button>
             <button onClick={() => window.location.href = '/rekap'} style={s.btnPrimary}>Lihat Rekap →</button>
@@ -137,12 +167,63 @@ export default function UploadPage({ email }: { email?: string }) {
           )}
         </header>
 
-        <div ref={dropRef} onDrop={handleDrop} onDragOver={e => { e.preventDefault(); setDragging(true) }} onDragLeave={() => setDragging(false)}
-          style={{ ...s.dropzone, ...(dragging ? s.dropzoneActive : {}) }} onClick={() => document.getElementById('fileInput')?.click()}>
-          <input id="fileInput" type="file" accept="image/*" multiple style={{ display: 'none' }} onChange={e => { const f = Array.from(e.target.files || []); if (f.length) addEntry(f); e.target.value = '' }} />
+        {/* Pengaturan submit */}
+        <div style={s.settingCard}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px 16px' }}>
+            {/* Kategori */}
+            <div>
+              <label style={s.fieldLabel}>Kategori</label>
+              <div style={{ display: 'flex', gap: 8 }}>
+                {(Object.entries(KATEGORI_LABEL) as [Kategori, string][]).map(([val, label]) => (
+                  <button
+                    key={val}
+                    onClick={() => setKategori(val)}
+                    style={{
+                      ...s.toggleBtn,
+                      ...(kategori === val ? s.toggleBtnActive : {})
+                    }}
+                  >
+                    {val === 'makan_minum' ? '🍽️' : '📋'} {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Penalangging */}
+            <div>
+              <label style={s.fieldLabel}>Dibayar oleh</label>
+              <select
+                value={selectedPenalangging}
+                onChange={e => setSelectedPenalangging(e.target.value)}
+                style={s.select}
+              >
+                <option value="">-- Pilih penalangging --</option>
+                {penalanggingList.map(p => (
+                  <option key={p.id} value={p.id}>
+                    {p.nama} · {p.bank} {p.no_rekening}
+                  </option>
+                ))}
+              </select>
+              {selectedInfo && (
+                <p style={{ fontSize: 12, color: '#6b7280', margin: '4px 0 0' }}>
+                  {selectedInfo.bank} · {selectedInfo.no_rekening}
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Drop zone */}
+        <div ref={dropRef} onDrop={handleDrop}
+          onDragOver={e => { e.preventDefault(); setDragging(true) }}
+          onDragLeave={() => setDragging(false)}
+          style={{ ...s.dropzone, ...(dragging ? s.dropzoneActive : {}) }}
+          onClick={() => document.getElementById('fileInput')?.click()}>
+          <input id="fileInput" type="file" accept="image/*" multiple style={{ display: 'none' }}
+            onChange={e => { const f = Array.from(e.target.files || []); if (f.length) addEntry(f); e.target.value = '' }} />
           <div style={{ fontSize: 32, marginBottom: 8 }}>📎</div>
           <p style={{ fontWeight: 600, color: '#374151', marginBottom: 4 }}>Drop nota di sini atau klik untuk pilih</p>
-          <p style={{ fontSize: 13, color: '#9ca3af' }}>Pilih beberapa file sekaligus untuk 1 transaksi (GrabFood biasanya 2–3 screenshot)</p>
+          <p style={{ fontSize: 13, color: '#9ca3af' }}>Pilih beberapa file sekaligus untuk 1 transaksi</p>
         </div>
 
         {entries.length > 0 && (
@@ -158,17 +239,27 @@ export default function UploadPage({ email }: { email?: string }) {
 
         {allDone && hasValid && (
           <div style={s.submitBar}>
-            <span style={{ fontWeight: 600 }}>{entries.filter(e => e.status === 'done').length} nota siap submit</span>
+            <div>
+              <span style={{ fontWeight: 600 }}>{entries.filter(e => e.status === 'done').length} nota</span>
+              <span style={{ fontSize: 13, color: '#6b7280', marginLeft: 8 }}>
+                {KATEGORI_LABEL[kategori]} · {selectedInfo?.nama || <span style={{ color: '#ef4444' }}>pilih penalangging</span>}
+              </span>
+            </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
               <span style={{ fontWeight: 700, fontSize: 18 }}>{formatRupiah(totalAmount)}</span>
-              <button onClick={handleSubmit} disabled={submitting} style={{ ...s.btnPrimary, opacity: submitting ? 0.6 : 1 }}>
-                {submitting ? 'Menyimpan...' : 'Simpan ke Database →'}
+              <button onClick={handleSubmit} disabled={submitting || !selectedPenalangging}
+                style={{ ...s.btnPrimary, opacity: submitting || !selectedPenalangging ? 0.5 : 1 }}>
+                {submitting ? 'Menyimpan...' : 'Simpan →'}
               </button>
             </div>
           </div>
         )}
 
-        {submitError && <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, padding: '12px 16px', color: '#991b1b', fontSize: 14 }}>⚠️ {submitError}</div>}
+        {submitError && (
+          <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, padding: '12px 16px', color: '#991b1b', fontSize: 14 }}>
+            ⚠️ {submitError}
+          </div>
+        )}
       </main>
     </div>
   )
@@ -198,15 +289,24 @@ function EntryCard({ entry, index, onUpdate, onRemove, onRetry }: {
           {entry.previews.map((src, i) => <img key={i} src={src} alt={`nota ${i + 1}`} style={{ height: 140, borderRadius: 6, border: '1px solid #e5e7eb', flexShrink: 0 }} />)}
         </div>
       )}
-      {entry.status === 'parsing' && <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: '#6b7280', fontSize: 14, padding: '8px 0' }}><div style={s.spinner} /><span>Membaca nota...</span></div>}
-      {entry.status === 'error' && <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 0' }}><span style={{ color: '#ef4444', fontSize: 14 }}>⚠️ {entry.errorMsg}</span><button onClick={onRetry} style={s.btnSmall}>Coba lagi</button></div>}
+      {entry.status === 'parsing' && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: '#6b7280', fontSize: 14, padding: '8px 0' }}>
+          <div style={s.spinner} /><span>Membaca nota...</span>
+        </div>
+      )}
+      {entry.status === 'error' && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 0' }}>
+          <span style={{ color: '#ef4444', fontSize: 14 }}>⚠️ {entry.errorMsg}</span>
+          <button onClick={onRetry} style={s.btnSmall}>Coba lagi</button>
+        </div>
+      )}
       {entry.status === 'done' && entry.edited && (
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px 16px' }}>
-          {[
-            { label: 'Tanggal', field: 'tanggal' as keyof ParsedNota, placeholder: 'DD/MM/YYYY' },
-            { label: 'Keterangan', field: 'keterangan' as keyof ParsedNota, placeholder: 'Nama restoran' },
-            { label: 'Jumlah (Rp)', field: 'jumlah' as keyof ParsedNota, placeholder: '125000' },
-          ].map(({ label, field, placeholder }) => (
+          {([
+            { label: 'Tanggal', field: 'tanggal', placeholder: 'DD/MM/YYYY' },
+            { label: 'Keterangan', field: 'keterangan', placeholder: 'Nama restoran/tempat' },
+            { label: 'Jumlah (Rp)', field: 'jumlah', placeholder: '125000' },
+          ] as { label: string; field: keyof ParsedNota; placeholder: string }[]).map(({ label, field, placeholder }) => (
             <div key={field}>
               <label style={s.fieldLabel}>{label}</label>
               <input value={String(entry.edited?.[field] || '')}
@@ -218,7 +318,11 @@ function EntryCard({ entry, index, onUpdate, onRemove, onRetry }: {
             <label style={s.fieldLabel}>Deskripsi</label>
             <input value={entry.edited?.deskripsi || ''} onChange={e => onUpdate(entry.id, 'deskripsi', e.target.value)} placeholder="Detail pesanan" style={s.fieldInput} />
           </div>
-          {entry.edited?.catatan && <div style={{ gridColumn: '1 / -1', fontSize: 12, color: '#92400e', background: '#fffbeb', borderRadius: 6, padding: '6px 10px' }}>💡 {entry.edited.catatan}</div>}
+          {entry.edited?.catatan && (
+            <div style={{ gridColumn: '1 / -1', fontSize: 12, color: '#92400e', background: '#fffbeb', borderRadius: 6, padding: '6px 10px' }}>
+              💡 {entry.edited.catatan}
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -230,12 +334,16 @@ const s: Record<string, React.CSSProperties> = {
   header: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' },
   title: { fontSize: 24, fontWeight: 700, margin: 0, letterSpacing: '-0.02em' },
   subtitle: { fontSize: 14, color: '#6b7280', margin: '4px 0 0' },
+  settingCard: { background: '#fff', border: '1px solid #e5e7eb', borderRadius: 10, padding: '16px 18px' },
+  toggleBtn: { flex: 1, padding: '8px 12px', border: '1px solid #e5e7eb', borderRadius: 7, fontSize: 13, cursor: 'pointer', background: '#f9fafb', color: '#6b7280', fontFamily: 'inherit', fontWeight: 500 },
+  toggleBtnActive: { background: '#fff7ed', borderColor: '#f97316', color: '#ea580c', fontWeight: 700 },
+  select: { width: '100%', padding: '8px 10px', border: '1px solid #d1d5db', borderRadius: 7, fontSize: 13, fontFamily: 'inherit', background: '#fafafa' },
   dropzone: { border: '2px dashed #d1d5db', borderRadius: 12, padding: '32px 20px', textAlign: 'center', cursor: 'pointer', background: '#f9fafb', transition: 'all 0.15s' },
   dropzoneActive: { borderColor: '#f97316', background: '#fff7ed' },
   card: { background: '#fff', border: '1px solid #e5e7eb', borderRadius: 12, padding: 16, display: 'flex', flexDirection: 'column', gap: 12 },
   indexBadge: { background: '#111827', color: '#fff', borderRadius: 6, padding: '2px 8px', fontSize: 12, fontWeight: 700 },
   fieldLabel: { display: 'block', fontSize: 11, fontWeight: 600, letterSpacing: '0.06em', color: '#6b7280', textTransform: 'uppercase', marginBottom: 4 },
-  fieldInput: { width: '100%', padding: '8px 10px', border: '1px solid #d1d5db', borderRadius: 7, fontSize: 14, fontFamily: 'inherit', boxSizing: 'border-box', background: '#fafafa' },
+  fieldInput: { width: '100%', padding: '8px 10px', border: '1px solid #d1d5db', borderRadius: 7, fontSize: 14, fontFamily: 'inherit', boxSizing: 'border-box' as const, background: '#fafafa' },
   spinner: { width: 16, height: 16, border: '2px solid #e5e7eb', borderTop: '2px solid #f97316', borderRadius: '50%', animation: 'spin 0.8s linear infinite' },
   submitBar: { position: 'sticky', bottom: 20, background: '#fff', border: '1px solid #e5e7eb', borderRadius: 12, padding: '14px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: '0 4px 24px rgba(0,0,0,0.1)' },
   btnPrimary: { background: '#f97316', color: '#fff', border: 'none', borderRadius: 8, padding: '10px 20px', fontWeight: 700, fontSize: 14, cursor: 'pointer', fontFamily: 'inherit' },
