@@ -1,3 +1,5 @@
+'use client'
+
 import { useState, useCallback, useRef, useEffect } from 'react'
 import Navbar from '@/components/Navbar'
 import { createClient, type Penalangging, type Kategori, KATEGORI_LABEL } from '@/lib/supabase'
