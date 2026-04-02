@@ -41,7 +41,7 @@ Jawab HANYA dalam format JSON berikut, tanpa teks lain:
   "catatan": "opsional: catatan jika ada ambiguitas"
 }`
 
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' })
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' })
     const result = await model.generateContent([prompt, ...imageParts])
     const text = result.response.text()
 
