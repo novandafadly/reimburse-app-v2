@@ -69,7 +69,7 @@ export default function RekapPage({ email }: { email?: string }) {
     setEditData({
       tanggal: row.tanggal, keterangan: row.keterangan, jumlah: row.jumlah,
       deskripsi: row.deskripsi || '', dibayar_oleh: row.dibayar_oleh || '',
-      bank_penalangging: row.bank_penalangging || '', no_rek_penalangging: row.no_rek_penalangging || '',
+      bank_Staf: row.bank_Staf || '', no_rek_Staf: row.no_rek_Staf || '',
       kategori: row.kategori
     })
   }
@@ -80,8 +80,8 @@ export default function RekapPage({ email }: { email?: string }) {
     await supabase.from('transaksi').update({
       tanggal: editData.tanggal, keterangan: editData.keterangan,
       jumlah: Number(editData.jumlah), deskripsi: editData.deskripsi,
-      dibayar_oleh: editData.dibayar_oleh, bank_penalangging: editData.bank_penalangging,
-      no_rek_penalangging: editData.no_rek_penalangging, kategori: editData.kategori,
+      dibayar_oleh: editData.dibayar_oleh, bank_Staf: editData.bank_Staf,
+      no_rek_Staf: editData.no_rek_Staf, kategori: editData.kategori,
     }).eq('id', editId)
     setEditId(null); setSaving(false); fetchData()
   }
@@ -161,7 +161,7 @@ export default function RekapPage({ email }: { email?: string }) {
                     <th style={{ ...s.th }} className="screen-only">Kategori</th>
                     <th style={s.th}>Jumlah</th>
                     {/* Kolom-kolom ini hanya tampil di screen, hilang saat print */}
-                    <th style={s.th} className="screen-only">Penalangging</th>
+                    <th style={s.th} className="screen-only">Staf</th>
                     <th style={s.th} className="screen-only">Status</th>
                     <th style={{ ...s.th }} className="no-print">Aksi</th>
                   </tr>
@@ -182,8 +182,8 @@ export default function RekapPage({ email }: { email?: string }) {
                           <td style={s.td}><input type="number" value={editData.jumlah || ''} onChange={e => setEditData(p => ({ ...p, jumlah: Number(e.target.value) }))} style={{ ...s.editInput, width: 90 }} /></td>
                           <td style={s.td} className="screen-only">
                             <input value={editData.dibayar_oleh || ''} onChange={e => setEditData(p => ({ ...p, dibayar_oleh: e.target.value }))} style={{ ...s.editInput, marginBottom: 3 }} placeholder="Nama" />
-                            <input value={editData.bank_penalangging || ''} onChange={e => setEditData(p => ({ ...p, bank_penalangging: e.target.value }))} style={{ ...s.editInput, marginBottom: 3 }} placeholder="Bank" />
-                            <input value={editData.no_rek_penalangging || ''} onChange={e => setEditData(p => ({ ...p, no_rek_penalangging: e.target.value }))} style={s.editInput} placeholder="No. Rek" />
+                            <input value={editData.bank_Staf || ''} onChange={e => setEditData(p => ({ ...p, bank_Staf: e.target.value }))} style={{ ...s.editInput, marginBottom: 3 }} placeholder="Bank" />
+                            <input value={editData.no_rek_Staf || ''} onChange={e => setEditData(p => ({ ...p, no_rek_Staf: e.target.value }))} style={s.editInput} placeholder="No. Rek" />
                           </td>
                           <td style={s.td} className="screen-only">-</td>
                           <td style={s.td} className="no-print">
@@ -206,8 +206,8 @@ export default function RekapPage({ email }: { email?: string }) {
                             {row.dibayar_oleh ? (
                               <div>
                                 <div style={{ fontSize: 13, fontWeight: 600 }}>{row.dibayar_oleh}</div>
-                                {(row.bank_penalangging || row.no_rek_penalangging) && (
-                                  <div style={{ fontSize: 11, color: '#6b7280' }}>{row.bank_penalangging} {row.no_rek_penalangging}</div>
+                                {(row.bank_Staf || row.no_rek_Staf) && (
+                                  <div style={{ fontSize: 11, color: '#6b7280' }}>{row.bank_Staf} {row.no_rek_Staf}</div>
                                 )}
                               </div>
                             ) : <span style={{ color: '#d1d5db' }}>-</span>}
