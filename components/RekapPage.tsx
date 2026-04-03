@@ -59,15 +59,6 @@ export default function RekapPage({ email }: { email?: string }) {
 
   const totalAmount = data.reduce((sum, r) => sum + r.jumlah, 0)
 
-  // Summary per penalangging
-  const summaryPenalangging = data.reduce((acc, r) => {
-    const key = r.dibayar_oleh || 'Tidak diketahui'
-    if (!acc[key]) acc[key] = { nama: key, bank: r.bank_penalangging, noRek: r.no_rek_penalangging, total: 0, belum: 0, proses: 0, selesai: 0 }
-    acc[key].total += r.jumlah
-    acc[key][r.status] += r.jumlah
-    return acc
-  }, {} as Record<string, { nama: string; bank: string | null; noRek: string | null; total: number; belum: number; proses: number; selesai: number }>)
-
   const updateStatus = async (id: string, status: 'belum' | 'proses' | 'selesai') => {
     await supabase.from('transaksi').update({ status }).eq('id', id)
     setData(prev => prev.map(r => r.id === id ? { ...r, status } : r))
@@ -75,7 +66,12 @@ export default function RekapPage({ email }: { email?: string }) {
 
   const startEdit = (row: Transaksi) => {
     setEditId(row.id)
-    setEditData({ tanggal: row.tanggal, keterangan: row.keterangan, jumlah: row.jumlah, deskripsi: row.deskripsi || '', dibayar_oleh: row.dibayar_oleh || '', bank_penalangging: row.bank_penalangging || '', no_rek_penalangging: row.no_rek_penalangging || '', kategori: row.kategori })
+    setEditData({
+      tanggal: row.tanggal, keterangan: row.keterangan, jumlah: row.jumlah,
+      deskripsi: row.deskripsi || '', dibayar_oleh: row.dibayar_oleh || '',
+      bank_penalangging: row.bank_penalangging || '', no_rek_penalangging: row.no_rek_penalangging || '',
+      kategori: row.kategori
+    })
   }
 
   const saveEdit = async () => {
@@ -109,7 +105,7 @@ export default function RekapPage({ email }: { email?: string }) {
     <div>
       <Navbar email={email} />
 
-      {/* Filter bar */}
+      {/* Filter bar - no-print */}
       <div style={s.filterBar} className="no-print">
         <div style={{ maxWidth: 1000, margin: '0 auto', padding: '0 20px', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
           <input type="date" value={filterFrom} onChange={e => setFilterFrom(e.target.value)} style={s.dateInput} />
@@ -135,11 +131,12 @@ export default function RekapPage({ email }: { email?: string }) {
       </div>
 
       <main style={s.main}>
-        {/* Print header */}
+        {/* Print header only */}
         <div style={{ display: 'none' }} className="print-header">
           <h2 style={{ textAlign: 'center', fontWeight: 700, fontSize: 14, margin: '0 0 2px' }}>
-            Rekap {kategoriLabel} — {periodLabel()}
+            Rekap {kategoriLabel}
           </h2>
+          <p style={{ textAlign: 'center', fontSize: 12, margin: '0 0 16px', color: '#374151' }}>{periodLabel()}</p>
         </div>
 
         {loading ? (
@@ -152,57 +149,6 @@ export default function RekapPage({ email }: { email?: string }) {
           </div>
         ) : (
           <>
-            {/* Summary per penalangging */}
-            <div style={s.summarySection} className="no-print">
-              <h3 style={s.sectionTitle}>Posisi per Penalangging</h3>
-              <div style={s.penalanggingGrid}>
-                {Object.values(summaryPenalangging).map(p => (
-                  <div key={p.nama} style={s.penalanggingCard}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
-                      <div>
-                        <div style={{ fontWeight: 700, fontSize: 14 }}>{p.nama}</div>
-                        {p.bank && <div style={{ fontSize: 12, color: '#6b7280' }}>{p.bank} · {p.noRek}</div>}
-                      </div>
-                      <div style={{ fontWeight: 700, fontSize: 16, color: '#111827' }}>{formatRupiah(p.total)}</div>
-                    </div>
-                    <div style={{ display: 'flex', gap: 6 }}>
-                      {p.belum > 0 && <span style={{ ...s.statusPill, color: STATUS_CONFIG.belum.color, background: STATUS_CONFIG.belum.bg, border: `1px solid ${STATUS_CONFIG.belum.border}` }}>Belum: {formatRupiah(p.belum)}</span>}
-                      {p.proses > 0 && <span style={{ ...s.statusPill, color: STATUS_CONFIG.proses.color, background: STATUS_CONFIG.proses.bg, border: `1px solid ${STATUS_CONFIG.proses.border}` }}>Proses: {formatRupiah(p.proses)}</span>}
-                      {p.selesai > 0 && <span style={{ ...s.statusPill, color: STATUS_CONFIG.selesai.color, background: STATUS_CONFIG.selesai.bg, border: `1px solid ${STATUS_CONFIG.selesai.border}` }}>Selesai: {formatRupiah(p.selesai)}</span>}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Summary penalangging untuk print */}
-            <div style={{ display: 'none', marginBottom: 20 }} className="print-summary">
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11, marginBottom: 16 }}>
-                <thead>
-                  <tr style={{ background: '#f3f4f6' }}>
-                    <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 700 }}>Penalangging</th>
-                    <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 700 }}>Bank / No. Rek</th>
-                    <th style={{ padding: '6px 8px', textAlign: 'right', fontWeight: 700 }}>Total</th>
-                    <th style={{ padding: '6px 8px', textAlign: 'right', fontWeight: 700 }}>Belum Cair</th>
-                    <th style={{ padding: '6px 8px', textAlign: 'right', fontWeight: 700 }}>Proses</th>
-                    <th style={{ padding: '6px 8px', textAlign: 'right', fontWeight: 700 }}>Sudah Cair</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {Object.values(summaryPenalangging).map(p => (
-                    <tr key={p.nama} style={{ borderBottom: '1px solid #e5e7eb' }}>
-                      <td style={{ padding: '6px 8px', fontWeight: 600 }}>{p.nama}</td>
-                      <td style={{ padding: '6px 8px', color: '#6b7280', fontSize: 10 }}>{p.bank} {p.noRek}</td>
-                      <td style={{ padding: '6px 8px', textAlign: 'right', fontWeight: 700 }}>{formatRupiah(p.total)}</td>
-                      <td style={{ padding: '6px 8px', textAlign: 'right', color: '#991b1b' }}>{p.belum > 0 ? formatRupiah(p.belum) : '-'}</td>
-                      <td style={{ padding: '6px 8px', textAlign: 'right', color: '#92400e' }}>{p.proses > 0 ? formatRupiah(p.proses) : '-'}</td>
-                      <td style={{ padding: '6px 8px', textAlign: 'right', color: '#166534' }}>{p.selesai > 0 ? formatRupiah(p.selesai) : '-'}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
             {/* Main table */}
             <div style={s.tableWrap}>
               <table style={s.table}>
@@ -211,11 +157,13 @@ export default function RekapPage({ email }: { email?: string }) {
                     <th style={s.th}>No</th>
                     <th style={s.th}>Tanggal</th>
                     <th style={s.th}>Keterangan</th>
-                    <th style={s.th}>Kategori</th>
+                    {/* Kategori: tampil di screen, hidden saat print */}
+                    <th style={{ ...s.th }} className="screen-only">Kategori</th>
                     <th style={s.th}>Jumlah</th>
-                    <th style={s.th}>Penalangging</th>
-                    <th style={s.th}>Status</th>
-                    <th style={{ ...s.th, ...s.noprint }}>Aksi</th>
+                    {/* Kolom-kolom ini hanya tampil di screen, hilang saat print */}
+                    <th style={s.th} className="screen-only">Penalangging</th>
+                    <th style={s.th} className="screen-only">Status</th>
+                    <th style={{ ...s.th }} className="no-print">Aksi</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -226,19 +174,19 @@ export default function RekapPage({ email }: { email?: string }) {
                           <td style={s.td}>{idx + 1}</td>
                           <td style={s.td}><input type="date" value={editData.tanggal || ''} onChange={e => setEditData(p => ({ ...p, tanggal: e.target.value }))} style={s.editInput} /></td>
                           <td style={s.td}><input value={editData.keterangan || ''} onChange={e => setEditData(p => ({ ...p, keterangan: e.target.value }))} style={s.editInput} /></td>
-                          <td style={s.td}>
+                          <td style={s.td} className="screen-only">
                             <select value={editData.kategori || 'makan_minum'} onChange={e => setEditData(p => ({ ...p, kategori: e.target.value as Kategori }))} style={s.editInput}>
                               {(Object.entries(KATEGORI_LABEL) as [Kategori, string][]).map(([val, label]) => <option key={val} value={val}>{label}</option>)}
                             </select>
                           </td>
                           <td style={s.td}><input type="number" value={editData.jumlah || ''} onChange={e => setEditData(p => ({ ...p, jumlah: Number(e.target.value) }))} style={{ ...s.editInput, width: 90 }} /></td>
-                          <td style={s.td}>
+                          <td style={s.td} className="screen-only">
                             <input value={editData.dibayar_oleh || ''} onChange={e => setEditData(p => ({ ...p, dibayar_oleh: e.target.value }))} style={{ ...s.editInput, marginBottom: 3 }} placeholder="Nama" />
                             <input value={editData.bank_penalangging || ''} onChange={e => setEditData(p => ({ ...p, bank_penalangging: e.target.value }))} style={{ ...s.editInput, marginBottom: 3 }} placeholder="Bank" />
                             <input value={editData.no_rek_penalangging || ''} onChange={e => setEditData(p => ({ ...p, no_rek_penalangging: e.target.value }))} style={s.editInput} placeholder="No. Rek" />
                           </td>
-                          <td style={s.td}>-</td>
-                          <td style={{ ...s.td, ...s.noprint, whiteSpace: 'nowrap' }}>
+                          <td style={s.td} className="screen-only">-</td>
+                          <td style={s.td} className="no-print">
                             <button onClick={saveEdit} disabled={saving} style={s.btnSave}>{saving ? '...' : 'Simpan'}</button>
                             <button onClick={() => setEditId(null)} style={s.btnCancel}>Batal</button>
                           </td>
@@ -248,13 +196,13 @@ export default function RekapPage({ email }: { email?: string }) {
                           <td style={s.td}>{idx + 1}</td>
                           <td style={s.td}>{formatTanggal(row.tanggal)}</td>
                           <td style={{ ...s.td, fontWeight: 500 }}>{row.keterangan}</td>
-                          <td style={s.td}>
+                          <td style={s.td} className="screen-only">
                             <span style={{ fontSize: 12, padding: '2px 7px', borderRadius: 4, background: row.kategori === 'makan_minum' ? '#fef3c7' : '#ede9fe', color: row.kategori === 'makan_minum' ? '#92400e' : '#5b21b6', fontWeight: 600 }}>
                               {row.kategori === 'makan_minum' ? '🍽️' : '📋'} {KATEGORI_LABEL[row.kategori]}
                             </span>
                           </td>
                           <td style={{ ...s.td, fontWeight: 600, whiteSpace: 'nowrap' }}>{formatRupiah(row.jumlah)}</td>
-                          <td style={s.td}>
+                          <td style={s.td} className="screen-only">
                             {row.dibayar_oleh ? (
                               <div>
                                 <div style={{ fontSize: 13, fontWeight: 600 }}>{row.dibayar_oleh}</div>
@@ -264,13 +212,13 @@ export default function RekapPage({ email }: { email?: string }) {
                               </div>
                             ) : <span style={{ color: '#d1d5db' }}>-</span>}
                           </td>
-                          <td style={s.td}>
+                          <td style={s.td} className="screen-only">
                             <select value={row.status} onChange={e => updateStatus(row.id, e.target.value as 'belum' | 'proses' | 'selesai')}
                               style={{ ...s.statusSelect, color: STATUS_CONFIG[row.status].color, background: STATUS_CONFIG[row.status].bg, borderColor: STATUS_CONFIG[row.status].border }}>
                               {Object.entries(STATUS_CONFIG).map(([val, cfg]) => <option key={val} value={val}>{cfg.label}</option>)}
                             </select>
                           </td>
-                          <td style={{ ...s.td, ...s.noprint, whiteSpace: 'nowrap' }}>
+                          <td style={s.td} className="no-print">
                             <button onClick={() => startEdit(row)} style={s.btnEdit}>Edit</button>
                             <button onClick={() => setDeleteId(row.id)} style={s.btnDelete}>Hapus</button>
                           </td>
@@ -281,32 +229,52 @@ export default function RekapPage({ email }: { email?: string }) {
                 </tbody>
                 <tfoot>
                   <tr style={{ background: '#111827' }}>
-                    <td colSpan={4} style={{ ...s.td, color: '#fff', fontWeight: 700, textAlign: 'right' }}>TOTAL</td>
+                    <td colSpan={3} style={{ ...s.td, color: '#fff', fontWeight: 700, textAlign: 'right' }}>TOTAL</td>
+                    {/* screen-only kosong */}
+                    <td style={s.td} className="screen-only" />
                     <td style={{ ...s.td, color: '#f97316', fontWeight: 700, fontSize: 15, whiteSpace: 'nowrap' }}>{formatRupiah(totalAmount)}</td>
-                    <td colSpan={2} style={s.td} />
-                    <td style={{ ...s.td, ...s.noprint }} />
+                    <td colSpan={2} style={s.td} className="screen-only" />
+                    <td style={s.td} className="no-print" />
                   </tr>
                 </tfoot>
               </table>
             </div>
 
-            {/* Lampiran */}
+            {/* Lampiran - grid 2x2 */}
             {Object.keys(lampiranMap).length > 0 && (
               <div style={{ marginTop: 32 }}>
-                <h3 style={{ fontSize: 14, fontWeight: 700, marginBottom: 16, color: '#374151' }}>Lampiran Nota</h3>
+                <h3 style={{ fontSize: 14, fontWeight: 700, marginBottom: 16, color: '#374151' }} className="no-print">Lampiran Nota</h3>
                 {data.map((row, idx) => {
                   const urls = lampiranMap[row.id]
                   if (!urls?.length) return null
                   return (
-                    <div key={row.id} style={{ marginBottom: 28, pageBreakInside: 'avoid' }}>
+                    <div key={row.id} style={{ marginBottom: 32, pageBreakInside: 'avoid' }}>
+                      {/* Caption: nama resto, tanggal, nominal saja */}
                       <p style={{ fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 10 }}>
                         {idx + 1}. {row.keterangan} — {formatTanggal(row.tanggal)} — {formatRupiah(row.jumlah)}
-                        {row.dibayar_oleh && <span style={{ fontWeight: 400, color: '#6b7280' }}> · {row.dibayar_oleh}</span>}
                       </p>
-                      <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                      {/* Grid 2x2 */}
+                      <div style={{
+                        display: 'grid',
+                        gridTemplateColumns: urls.length === 1 ? '1fr' : '1fr 1fr',
+                        gap: 8,
+                        width: '100%',
+                      }}>
                         {urls.map((url, i) => (
-                          <img key={i} src={url} alt={`nota ${i + 1}`}
-                            style={{ height: 320, maxWidth: 400, objectFit: 'contain', borderRadius: 8, border: '1px solid #e5e7eb' }} />
+                          <img
+                            key={i}
+                            src={url}
+                            alt={`nota ${i + 1}`}
+                            style={{
+                              width: '100%',
+                              height: 'auto',
+                              maxHeight: 420,
+                              objectFit: 'contain',
+                              borderRadius: 6,
+                              border: '1px solid #e5e7eb',
+                              background: '#fafafa',
+                            }}
+                          />
                         ))}
                       </div>
                     </div>
@@ -335,9 +303,12 @@ export default function RekapPage({ email }: { email?: string }) {
         @media print {
           .no-print { display: none !important; }
           .print-header { display: block !important; }
-          .print-summary { display: block !important; }
+          .screen-only { display: none !important; }
           body { background: white !important; }
           nav { display: none !important; }
+        }
+        @media screen {
+          .print-header { display: none !important; }
         }
       `}</style>
     </div>
@@ -348,16 +319,10 @@ const s: Record<string, React.CSSProperties> = {
   filterBar: { background: '#fff', borderBottom: '1px solid #e5e7eb', padding: '10px 0' },
   dateInput: { padding: '6px 10px', border: '1px solid #d1d5db', borderRadius: 6, fontSize: 13, fontFamily: 'inherit' },
   main: { maxWidth: 1000, margin: '0 auto', padding: '24px 20px 60px' },
-  summarySection: { marginBottom: 20 },
-  sectionTitle: { fontSize: 14, fontWeight: 700, color: '#374151', margin: '0 0 12px' },
-  penalanggingGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 10 },
-  penalanggingCard: { background: '#fff', border: '1px solid #e5e7eb', borderRadius: 10, padding: '14px 16px' },
-  statusPill: { fontSize: 11, fontWeight: 600, padding: '2px 7px', borderRadius: 4 },
   tableWrap: { background: '#fff', border: '1px solid #e5e7eb', borderRadius: 10, overflow: 'hidden' },
   table: { width: '100%', borderCollapse: 'collapse', fontSize: 13 },
   th: { background: '#111827', color: '#fff', padding: '10px 12px', textAlign: 'left', fontWeight: 600, fontSize: 12 },
   td: { padding: '9px 12px', borderBottom: '1px solid #f3f4f6', verticalAlign: 'middle' },
-  noprint: {},
   editInput: { padding: '5px 8px', border: '1px solid #d1d5db', borderRadius: 5, fontSize: 12, fontFamily: 'inherit', width: '100%' },
   statusSelect: { padding: '4px 7px', border: '1px solid', borderRadius: 5, fontSize: 11, fontFamily: 'inherit', cursor: 'pointer', fontWeight: 600 },
   btnEdit: { background: 'transparent', border: '1px solid #d1d5db', borderRadius: 5, padding: '4px 8px', fontSize: 12, cursor: 'pointer', color: '#374151', fontFamily: 'inherit', marginRight: 4 },
