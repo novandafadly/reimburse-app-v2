@@ -29,22 +29,20 @@ export default function Navbar({ email }: { email?: string }) {
         {/* Desktop links */}
         <div style={s.desktopLinks}>
           {links.map(l => (
-            <a key={l.href} href={l.href} style={{ ...s.link, ...(pathname === l.href ? s.linkActive : {}) }}>
+            <a key={l.href} href={l.href}
+              style={{ ...s.link, ...(pathname === l.href ? s.linkActive : {}) }}>
               {l.label}
             </a>
           ))}
+          <button onClick={logout} style={s.logoutBtn}>Keluar</button>
         </div>
 
-        <div style={s.right}>
-          {email && <span style={s.email}>{email}</span>}
-          <button onClick={logout} style={{ ...s.logoutBtn, display: 'none' }} className="desktop-logout">Keluar</button>
-          {/* Hamburger */}
-          <button onClick={() => setMenuOpen(p => !p)} style={s.hamburger} aria-label="Menu">
-            <span style={{ ...s.bar, ...(menuOpen ? { transform: 'rotate(45deg) translate(5px, 5px)' } : {}) }} />
-            <span style={{ ...s.bar, ...(menuOpen ? { opacity: 0 } : {}) }} />
-            <span style={{ ...s.bar, ...(menuOpen ? { transform: 'rotate(-45deg) translate(5px, -5px)' } : {}) }} />
-          </button>
-        </div>
+        {/* Hamburger - mobile only */}
+        <button onClick={() => setMenuOpen(p => !p)} style={s.hamburger} aria-label="Menu">
+          <span style={{ ...s.bar, ...(menuOpen ? { transform: 'rotate(45deg) translate(5px, 5px)' } : {}) }} />
+          <span style={{ ...s.bar, ...(menuOpen ? { opacity: 0 } : {}) }} />
+          <span style={{ ...s.bar, ...(menuOpen ? { transform: 'rotate(-45deg) translate(5px, -5px)' } : {}) }} />
+        </button>
       </div>
 
       {/* Mobile dropdown */}
@@ -58,7 +56,6 @@ export default function Navbar({ email }: { email?: string }) {
             </a>
           ))}
           <div style={{ borderTop: '1px solid #f3f4f6', marginTop: 8, paddingTop: 8 }}>
-            {email && <p style={{ fontSize: 12, color: '#9ca3af', margin: '0 0 8px', padding: '0 16px' }}>{email}</p>}
             <button onClick={logout} style={s.mobileLogout}>Keluar</button>
           </div>
         </div>
@@ -68,10 +65,10 @@ export default function Navbar({ email }: { email?: string }) {
         @media (min-width: 640px) {
           .hamburger-btn { display: none !important; }
           .desktop-links { display: flex !important; }
-          .desktop-logout { display: block !important; }
         }
         @media (max-width: 639px) {
           .desktop-links { display: none !important; }
+          .hamburger-btn { display: flex !important; }
         }
       `}</style>
     </nav>
@@ -80,14 +77,12 @@ export default function Navbar({ email }: { email?: string }) {
 
 const s: Record<string, React.CSSProperties> = {
   nav: { background: '#fff', borderBottom: '1px solid #e5e7eb', position: 'sticky', top: 0, zIndex: 100 },
-  inner: { maxWidth: 1000, margin: '0 auto', padding: '0 16px', height: 52, display: 'flex', alignItems: 'center', gap: 16 },
-  brand: { fontSize: 15, color: '#111827', display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap', fontWeight: 500 },
-  desktopLinks: { display: 'flex', gap: 2, flex: 1 },
+  inner: { maxWidth: 1000, margin: '0 auto', padding: '0 16px', height: 52, display: 'flex', alignItems: 'center', justifyContent: 'space-between' },
+  brand: { fontSize: 15, color: '#111827', display: 'flex', alignItems: 'center', gap: 6, fontWeight: 500 },
+  desktopLinks: { display: 'flex', alignItems: 'center', gap: 2 },
   link: { padding: '6px 10px', borderRadius: 6, fontSize: 14, color: '#6b7280', textDecoration: 'none', fontWeight: 500 },
   linkActive: { background: '#fff7ed', color: '#ea580c' },
-  right: { display: 'flex', alignItems: 'center', gap: 8, marginLeft: 'auto' },
-  email: { fontSize: 12, color: '#9ca3af', maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
-  logoutBtn: { background: 'transparent', border: '1px solid #e5e7eb', borderRadius: 6, padding: '5px 10px', fontSize: 13, cursor: 'pointer', color: '#374151', fontFamily: 'inherit' },
+  logoutBtn: { background: 'transparent', border: '1px solid #e5e7eb', borderRadius: 6, padding: '5px 10px', fontSize: 13, cursor: 'pointer', color: '#374151', fontFamily: 'inherit', marginLeft: 8 },
   hamburger: { background: 'none', border: 'none', cursor: 'pointer', padding: 6, display: 'flex', flexDirection: 'column', gap: 4 },
   bar: { display: 'block', width: 20, height: 2, background: '#374151', borderRadius: 2, transition: 'all 0.2s' },
   mobileMenu: { background: '#fff', borderTop: '1px solid #f3f4f6', padding: '8px 0 12px' },
