@@ -69,7 +69,8 @@ export default function RekapPage({ email }: { email?: string }) {
     setEditData({
       tanggal: row.tanggal, keterangan: row.keterangan, jumlah: row.jumlah,
       deskripsi: row.deskripsi || '', dibayar_oleh: row.dibayar_oleh || '',
-      bank_Staf: row.bank_Staf || '', no_rek_Staf: row.no_rek_Staf || '',
+      bank_penalangging: row.bank_penalangging || '',
+      no_rek_penalangging: row.no_rek_penalangging || '',
       kategori: row.kategori
     })
   }
@@ -80,8 +81,10 @@ export default function RekapPage({ email }: { email?: string }) {
     await supabase.from('transaksi').update({
       tanggal: editData.tanggal, keterangan: editData.keterangan,
       jumlah: Number(editData.jumlah), deskripsi: editData.deskripsi,
-      dibayar_oleh: editData.dibayar_oleh, bank_Staf: editData.bank_Staf,
-      no_rek_Staf: editData.no_rek_Staf, kategori: editData.kategori,
+      dibayar_oleh: editData.dibayar_oleh,
+      bank_penalangging: editData.bank_penalangging,
+      no_rek_penalangging: editData.no_rek_penalangging,
+      kategori: editData.kategori,
     }).eq('id', editId)
     setEditId(null); setSaving(false); fetchData()
   }
@@ -105,7 +108,6 @@ export default function RekapPage({ email }: { email?: string }) {
     <div>
       <Navbar email={email} />
 
-      {/* Filter bar - no-print */}
       <div style={s.filterBar} className="no-print">
         <div style={{ maxWidth: 1000, margin: '0 auto', padding: '0 20px', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
           <input type="date" value={filterFrom} onChange={e => setFilterFrom(e.target.value)} style={s.dateInput} />
@@ -131,7 +133,7 @@ export default function RekapPage({ email }: { email?: string }) {
       </div>
 
       <main style={s.main}>
-        {/* Print header only */}
+        {/* Print header */}
         <div style={{ display: 'none' }} className="print-header">
           <h2 style={{ textAlign: 'center', fontWeight: 700, fontSize: 14, margin: '0 0 2px' }}>
             Rekap {kategoriLabel}
@@ -149,7 +151,6 @@ export default function RekapPage({ email }: { email?: string }) {
           </div>
         ) : (
           <>
-            {/* Main table */}
             <div style={s.tableWrap}>
               <table style={s.table}>
                 <thead>
@@ -157,13 +158,11 @@ export default function RekapPage({ email }: { email?: string }) {
                     <th style={s.th}>No</th>
                     <th style={s.th}>Tanggal</th>
                     <th style={s.th}>Keterangan</th>
-                    {/* Kategori: tampil di screen, hidden saat print */}
                     <th style={{ ...s.th }} className="screen-only">Kategori</th>
                     <th style={s.th}>Jumlah</th>
-                    {/* Kolom-kolom ini hanya tampil di screen, hilang saat print */}
                     <th style={s.th} className="screen-only">Staf</th>
                     <th style={s.th} className="screen-only">Status</th>
-                    <th style={{ ...s.th }} className="no-print">Aksi</th>
+                    <th style={s.th} className="no-print">Aksi</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -182,8 +181,8 @@ export default function RekapPage({ email }: { email?: string }) {
                           <td style={s.td}><input type="number" value={editData.jumlah || ''} onChange={e => setEditData(p => ({ ...p, jumlah: Number(e.target.value) }))} style={{ ...s.editInput, width: 90 }} /></td>
                           <td style={s.td} className="screen-only">
                             <input value={editData.dibayar_oleh || ''} onChange={e => setEditData(p => ({ ...p, dibayar_oleh: e.target.value }))} style={{ ...s.editInput, marginBottom: 3 }} placeholder="Nama" />
-                            <input value={editData.bank_Staf || ''} onChange={e => setEditData(p => ({ ...p, bank_Staf: e.target.value }))} style={{ ...s.editInput, marginBottom: 3 }} placeholder="Bank" />
-                            <input value={editData.no_rek_Staf || ''} onChange={e => setEditData(p => ({ ...p, no_rek_Staf: e.target.value }))} style={s.editInput} placeholder="No. Rek" />
+                            <input value={editData.bank_penalangging || ''} onChange={e => setEditData(p => ({ ...p, bank_penalangging: e.target.value }))} style={{ ...s.editInput, marginBottom: 3 }} placeholder="Bank" />
+                            <input value={editData.no_rek_penalangging || ''} onChange={e => setEditData(p => ({ ...p, no_rek_penalangging: e.target.value }))} style={s.editInput} placeholder="No. Rek" />
                           </td>
                           <td style={s.td} className="screen-only">-</td>
                           <td style={s.td} className="no-print">
@@ -206,8 +205,8 @@ export default function RekapPage({ email }: { email?: string }) {
                             {row.dibayar_oleh ? (
                               <div>
                                 <div style={{ fontSize: 13, fontWeight: 600 }}>{row.dibayar_oleh}</div>
-                                {(row.bank_Staf || row.no_rek_Staf) && (
-                                  <div style={{ fontSize: 11, color: '#6b7280' }}>{row.bank_Staf} {row.no_rek_Staf}</div>
+                                {(row.bank_penalangging || row.no_rek_penalangging) && (
+                                  <div style={{ fontSize: 11, color: '#6b7280' }}>{row.bank_penalangging} {row.no_rek_penalangging}</div>
                                 )}
                               </div>
                             ) : <span style={{ color: '#d1d5db' }}>-</span>}
@@ -230,7 +229,6 @@ export default function RekapPage({ email }: { email?: string }) {
                 <tfoot>
                   <tr style={{ background: '#111827' }}>
                     <td colSpan={3} style={{ ...s.td, color: '#fff', fontWeight: 700, textAlign: 'right' }}>TOTAL</td>
-                    {/* screen-only kosong */}
                     <td style={s.td} className="screen-only" />
                     <td style={{ ...s.td, color: '#f97316', fontWeight: 700, fontSize: 15, whiteSpace: 'nowrap' }}>{formatRupiah(totalAmount)}</td>
                     <td colSpan={2} style={s.td} className="screen-only" />
@@ -249,11 +247,9 @@ export default function RekapPage({ email }: { email?: string }) {
                   if (!urls?.length) return null
                   return (
                     <div key={row.id} style={{ marginBottom: 32, pageBreakInside: 'avoid' }}>
-                      {/* Caption: nama resto, tanggal, nominal saja */}
                       <p style={{ fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 10 }}>
                         {idx + 1}. {row.keterangan} — {formatTanggal(row.tanggal)} — {formatRupiah(row.jumlah)}
                       </p>
-                      {/* Grid 2x2 */}
                       <div style={{
                         display: 'grid',
                         gridTemplateColumns: urls.length === 1 ? '1fr' : '1fr 1fr',
@@ -261,20 +257,8 @@ export default function RekapPage({ email }: { email?: string }) {
                         width: '100%',
                       }}>
                         {urls.map((url, i) => (
-                          <img
-                            key={i}
-                            src={url}
-                            alt={`nota ${i + 1}`}
-                            style={{
-                              width: '100%',
-                              height: 'auto',
-                              maxHeight: 420,
-                              objectFit: 'contain',
-                              borderRadius: 6,
-                              border: '1px solid #e5e7eb',
-                              background: '#fafafa',
-                            }}
-                          />
+                          <img key={i} src={url} alt={`nota ${i + 1}`}
+                            style={{ width: '100%', height: 'auto', maxHeight: 420, objectFit: 'contain', borderRadius: 6, border: '1px solid #e5e7eb', background: '#fafafa' }} />
                         ))}
                       </div>
                     </div>
