@@ -17,7 +17,6 @@ export default function Navbar({ email }: { email?: string }) {
     { href: '/', label: 'Upload Nota' },
     { href: '/rekap', label: 'Rekap' },
     { href: '/dashboard', label: 'Dashboard' },
-    { href: '/profil', label: 'Profil' },
   ]
 
   return (
