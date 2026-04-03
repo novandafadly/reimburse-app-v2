@@ -16,10 +16,12 @@ export default function Navbar({ email }: { email?: string }) {
   const links = [
     { href: '/', label: 'Upload Nota' },
     { href: '/rekap', label: 'Rekap' },
+    { href: '/dashboard', label: 'Dashboard' },
+    { href: '/profil', label: 'Profil' },
   ]
 
   return (
-    <nav style={s.nav}>
+    <nav style={s.nav} className="no-print">
       <div style={s.inner}>
         <div style={s.brand}>🧾 <span style={{ fontWeight: 700 }}>Reimburse Makan</span></div>
         <div style={s.links}>
@@ -40,7 +42,7 @@ export default function Navbar({ email }: { email?: string }) {
 
 const s: Record<string, React.CSSProperties> = {
   nav: { background: '#fff', borderBottom: '1px solid #e5e7eb', position: 'sticky', top: 0, zIndex: 100 },
-  inner: { maxWidth: 900, margin: '0 auto', padding: '0 20px', height: 56, display: 'flex', alignItems: 'center', gap: 24 },
+  inner: { maxWidth: 1000, margin: '0 auto', padding: '0 20px', height: 56, display: 'flex', alignItems: 'center', gap: 24 },
   brand: { fontSize: 15, color: '#111827', display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap' },
   links: { display: 'flex', gap: 4, flex: 1 },
   link: { padding: '6px 12px', borderRadius: 6, fontSize: 14, color: '#6b7280', textDecoration: 'none', fontWeight: 500 },
