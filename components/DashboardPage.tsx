@@ -79,8 +79,12 @@ export default function DashboardPage({ email }: { email?: string }) {
               <option key={val} value={val}>{label}</option>
             ))}
           </select>
-          <input type="date" value={filterFrom} onChange={e => setFilterFrom(e.target.value)} style={s.filterInput} />
-          <input type="date" value={filterTo} onChange={e => setFilterTo(e.target.value)} style={s.filterInput} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: '1 1 260px' }}>
+            <span style={{ fontSize: 12, color: '#6b7280', fontWeight: 600, whiteSpace: 'nowrap' }}>Dari</span>
+            <input type="date" value={filterFrom} onChange={e => setFilterFrom(e.target.value)} style={{ ...s.filterInput, flex: 1 }} />
+            <span style={{ fontSize: 12, color: '#6b7280', fontWeight: 600, whiteSpace: 'nowrap' }}>s.d.</span>
+            <input type="date" value={filterTo} onChange={e => setFilterTo(e.target.value)} style={{ ...s.filterInput, flex: 1 }} />
+          </div>
           {(filterKategori || filterFrom || filterTo) && (
             <button onClick={() => { setFilterKategori(''); setFilterFrom(''); setFilterTo('') }} style={s.btnSmall}>Reset</button>
           )}
