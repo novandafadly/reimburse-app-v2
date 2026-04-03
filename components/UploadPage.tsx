@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useRef, useEffect } from 'react'
 import Navbar from '@/components/Navbar'
-import { createClient, type Penalangging, type Kategori, KATEGORI_LABEL } from '@/lib/supabase'
+import { createClient, type Staf, type Kategori, KATEGORI_LABEL } from '@/lib/supabase'
 import type { NotaEntry, ParsedNota } from '@/lib/types'
 
 function generateId() { return Math.random().toString(36).slice(2, 9) }
@@ -44,7 +44,7 @@ export default function UploadPage({ email }: { email?: string }) {
   const [submitted, setSubmitted] = useState(false)
   const [submitError, setSubmitError] = useState('')
   const [dragging, setDragging] = useState(false)
-  const [penalanggingList, setPenalanggingList] = useState<Penalangging[]>([])
+  const [penalanggingList, setPenalanggingList] = useState<Staf[]>([])
   const [selectedPenalangging, setSelectedPenalangging] = useState<string>('')
   const [kategori, setKategori] = useState<Kategori>('makan_minum')
   const dropRef = useRef<HTMLDivElement>(null)
@@ -199,7 +199,7 @@ export default function UploadPage({ email }: { email?: string }) {
                 onChange={e => setSelectedPenalangging(e.target.value)}
                 style={s.select}
               >
-                <option value="">-- Pilih penalangging --</option>
+                <option value="">-- Pilih staf --</option>
                 {penalanggingList.map(p => (
                   <option key={p.id} value={p.id}>
                     {p.nama} · {p.bank} {p.no_rekening}
