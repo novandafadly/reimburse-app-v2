@@ -22,6 +22,7 @@ export default function DashboardPage({ email }: { email?: string }) {
   const [filterKategori, setFilterKategori] = useState<Kategori | ''>('')
   const [filterFrom, setFilterFrom] = useState('')
   const [filterTo, setFilterTo] = useState('')
+  const [expandedStaf, setExpandedStaf] = useState<string | null>(null)
 
   const fetchData = async () => {
     setLoading(true)
@@ -43,8 +44,8 @@ export default function DashboardPage({ email }: { email?: string }) {
     selesai: data.filter(r => r.status === 'selesai'),
   }
 
-  // Posisi per Staf — breakdown per transaksi
-  const byPenalangging = data.reduce((acc, r) => {
+  // Posisi per staf
+  const byStaf = data.reduce((acc, r) => {
     const key = r.dibayar_oleh || 'Tidak diketahui'
     if (!acc[key]) acc[key] = {
       nama: key,
@@ -68,15 +69,13 @@ export default function DashboardPage({ email }: { email?: string }) {
     totalBelum: number; totalProses: number; totalSelesai: number; total: number
   }>)
 
-  const [expandedPenalangging, setExpandedPenalangging] = useState<string | null>(null)
-
   return (
     <div>
       <Navbar email={email} />
       <main style={s.main}>
         <header style={{ marginBottom: 24 }}>
           <h1 style={s.title}>Dashboard</h1>
-          <p style={s.subtitle}>Posisi dan status reimburse semua penalangging</p>
+          <p style={s.subtitle}>Posisi dan status reimburse semua staf</p>
         </header>
 
         {/* Filter */}
@@ -99,7 +98,7 @@ export default function DashboardPage({ email }: { email?: string }) {
           <div style={{ textAlign: 'center', padding: 60, color: '#9ca3af' }}>Memuat...</div>
         ) : (
           <>
-            {/* Status overview cards */}
+            {/* Status overview */}
             <div style={s.statusGrid}>
               <div style={{ ...s.statusCard, borderTop: '3px solid #111827' }}>
                 <div style={s.statusLabel}>Total Keseluruhan</div>
@@ -119,17 +118,16 @@ export default function DashboardPage({ email }: { email?: string }) {
               })}
             </div>
 
-            {/* Posisi per Staf */}
+            {/* Posisi per staf */}
             <h2 style={s.sectionTitle}>Posisi per Staf</h2>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              {Object.values(byPenalangging).sort((a, b) => b.total - a.total).map(p => {
-                const isExpanded = expandedPenalangging === p.nama
+              {Object.values(byStaf).sort((a, b) => b.total - a.total).map(p => {
+                const isExpanded = expandedStaf === p.nama
                 return (
-                  <div key={p.nama} style={s.penalanggingCard}>
-                    {/* Header */}
+                  <div key={p.nama} style={s.stafCard}>
                     <div
                       style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}
-                      onClick={() => setExpandedPenalangging(isExpanded ? null : p.nama)}
+                      onClick={() => setExpandedStaf(isExpanded ? null : p.nama)}
                     >
                       <div>
                         <div style={{ fontWeight: 700, fontSize: 15 }}>{p.nama}</div>
@@ -144,11 +142,10 @@ export default function DashboardPage({ email }: { email?: string }) {
                           <div style={{ fontWeight: 700, fontSize: 16 }}>{formatRupiah(p.total)}</div>
                           <div style={{ fontSize: 12, color: '#9ca3af' }}>{p.transaksi.length} transaksi</div>
                         </div>
-                        <span style={{ color: '#9ca3af', fontSize: 18 }}>{isExpanded ? '▲' : '▼'}</span>
+                        <span style={{ color: '#9ca3af', fontSize: 16 }}>{isExpanded ? '▲' : '▼'}</span>
                       </div>
                     </div>
 
-                    {/* Status bar */}
                     <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
                       {p.totalBelum > 0 && (
                         <span style={{ ...s.pill, color: STATUS_CONFIG.belum.color, background: STATUS_CONFIG.belum.bg, border: `1px solid ${STATUS_CONFIG.belum.border}` }}>
@@ -167,16 +164,14 @@ export default function DashboardPage({ email }: { email?: string }) {
                       )}
                     </div>
 
-                    {/* Progress bar */}
                     {p.total > 0 && (
                       <div style={{ marginTop: 10, height: 6, borderRadius: 3, background: '#f3f4f6', overflow: 'hidden', display: 'flex' }}>
-                        <div style={{ width: `${(p.totalSelesai / p.total) * 100}%`, background: '#16a34a', transition: 'width 0.3s' }} />
-                        <div style={{ width: `${(p.totalProses / p.total) * 100}%`, background: '#f59e0b', transition: 'width 0.3s' }} />
-                        <div style={{ width: `${(p.totalBelum / p.total) * 100}%`, background: '#ef4444', transition: 'width 0.3s' }} />
+                        <div style={{ width: `${(p.totalSelesai / p.total) * 100}%`, background: '#16a34a' }} />
+                        <div style={{ width: `${(p.totalProses / p.total) * 100}%`, background: '#f59e0b' }} />
+                        <div style={{ width: `${(p.totalBelum / p.total) * 100}%`, background: '#ef4444' }} />
                       </div>
                     )}
 
-                    {/* Detail transaksi */}
                     {isExpanded && (
                       <div style={{ marginTop: 16, borderTop: '1px solid #f3f4f6', paddingTop: 14 }}>
                         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
@@ -236,12 +231,12 @@ const s: Record<string, React.CSSProperties> = {
   filterRow: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 20, flexWrap: 'wrap' },
   filterInput: { padding: '7px 10px', border: '1px solid #d1d5db', borderRadius: 7, fontSize: 13, fontFamily: 'inherit', background: '#fff' },
   statusGrid: { display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginBottom: 28 },
-  statusCard: { background: '#fff', border: '1px solid #e5e7eb', borderRadius: 10, padding: '16px', display: 'flex', flexDirection: 'column', gap: 4 },
+  statusCard: { background: '#fff', border: '1px solid #e5e7eb', borderRadius: 10, padding: 16, display: 'flex', flexDirection: 'column', gap: 4 },
   statusLabel: { fontSize: 12, fontWeight: 600, color: '#6b7280' },
   statusAmount: { fontSize: 18, fontWeight: 700, color: '#111827' },
   statusCount: { fontSize: 12, color: '#9ca3af' },
   sectionTitle: { fontSize: 16, fontWeight: 700, color: '#111827', margin: '0 0 12px' },
-  penalanggingCard: { background: '#fff', border: '1px solid #e5e7eb', borderRadius: 12, padding: '16px 20px' },
+  stafCard: { background: '#fff', border: '1px solid #e5e7eb', borderRadius: 12, padding: '16px 20px' },
   pill: { fontSize: 12, fontWeight: 600, padding: '3px 10px', borderRadius: 5 },
   dth: { padding: '7px 10px', textAlign: 'left', fontWeight: 600, fontSize: 12, color: '#6b7280', borderBottom: '1px solid #e5e7eb' },
   dtd: { padding: '8px 10px', verticalAlign: 'middle' },
