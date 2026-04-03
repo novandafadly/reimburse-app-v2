@@ -14,7 +14,7 @@ export type Profile = {
   no_rekening: string | null
 }
 
-export type Penalangging = {
+export type Staf = {
   id: string
   nama: string
   bank: string
