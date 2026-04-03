@@ -44,19 +44,17 @@ export default function UploadPage({ email }: { email?: string }) {
   const [submitted, setSubmitted] = useState(false)
   const [submitError, setSubmitError] = useState('')
   const [dragging, setDragging] = useState(false)
-  const [penalanggingList, setPenalanggingList] = useState<Staf[]>([])
-  const [selectedPenalangging, setSelectedPenalangging] = useState<string>('')
+  const [stafList, setStafList] = useState<Staf[]>([])
+  const [selectedStaf, setSelectedStaf] = useState<string>('')
   const [kategori, setKategori] = useState<Kategori>('makan_minum')
   const dropRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     supabase.from('penalangging').select('*').eq('aktif', true).order('nama')
-      .then(({ data }) => {
-        if (data) setPenalanggingList(data)
-      })
+      .then(({ data }) => { if (data) setStafList(data) })
   }, [])
 
-  const selectedInfo = penalanggingList.find(p => p.id === selectedPenalangging)
+  const selectedInfo = stafList.find(p => p.id === selectedStaf)
 
   const addEntry = useCallback(async (files: File[]) => {
     if (!files.length) return
@@ -140,7 +138,7 @@ export default function UploadPage({ email }: { email?: string }) {
           <h2 style={{ fontSize: 26, marginBottom: 8, color: '#166534' }}>Berhasil disimpan!</h2>
           <p style={{ color: '#6b7280', marginBottom: 4 }}>{entries.filter(e => e.status === 'done').length} nota · {formatRupiah(totalAmount)}</p>
           <p style={{ color: '#9ca3af', fontSize: 13, marginBottom: 4 }}>
-            Kategori: {KATEGORI_LABEL[kategori]} · Penalangging: {selectedInfo?.nama || '-'}
+            Kategori: {KATEGORI_LABEL[kategori]} · Dibayar: {selectedInfo?.nama || '-'}
           </p>
           <p style={{ color: '#9ca3af', fontSize: 14, marginBottom: 32 }}>Data & foto sudah tersimpan.</p>
           <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
@@ -172,38 +170,23 @@ export default function UploadPage({ email }: { email?: string }) {
         {/* Pengaturan submit */}
         <div style={s.settingCard}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px 16px' }}>
-            {/* Kategori */}
             <div>
               <label style={s.fieldLabel}>Kategori</label>
               <div style={{ display: 'flex', gap: 8 }}>
                 {(Object.entries(KATEGORI_LABEL) as [Kategori, string][]).map(([val, label]) => (
-                  <button
-                    key={val}
-                    onClick={() => setKategori(val)}
-                    style={{
-                      ...s.toggleBtn,
-                      ...(kategori === val ? s.toggleBtnActive : {})
-                    }}
-                  >
+                  <button key={val} onClick={() => setKategori(val)}
+                    style={{ ...s.toggleBtn, ...(kategori === val ? s.toggleBtnActive : {}) }}>
                     {val === 'makan_minum' ? '🍽️' : '📋'} {label}
                   </button>
                 ))}
               </div>
             </div>
-
-            {/* Penalangging */}
             <div>
-              <label style={s.fieldLabel}>Dibayar oleh</label>
-              <select
-                value={selectedPenalangging}
-                onChange={e => setSelectedPenalangging(e.target.value)}
-                style={s.select}
-              >
+              <label style={s.fieldLabel}>Dibayar oleh (Staf)</label>
+              <select value={selectedStaf} onChange={e => setSelectedStaf(e.target.value)} style={s.select}>
                 <option value="">-- Pilih staf --</option>
-                {penalanggingList.map(p => (
-                  <option key={p.id} value={p.id}>
-                    {p.nama} · {p.bank} {p.no_rekening}
-                  </option>
+                {stafList.map(p => (
+                  <option key={p.id} value={p.id}>{p.nama} · {p.bank} {p.no_rekening}</option>
                 ))}
               </select>
               {selectedInfo && (
@@ -215,7 +198,6 @@ export default function UploadPage({ email }: { email?: string }) {
           </div>
         </div>
 
-        {/* Drop zone */}
         <div ref={dropRef} onDrop={handleDrop}
           onDragOver={e => { e.preventDefault(); setDragging(true) }}
           onDragLeave={() => setDragging(false)}
@@ -244,13 +226,13 @@ export default function UploadPage({ email }: { email?: string }) {
             <div>
               <span style={{ fontWeight: 600 }}>{entries.filter(e => e.status === 'done').length} nota</span>
               <span style={{ fontSize: 13, color: '#6b7280', marginLeft: 8 }}>
-                {KATEGORI_LABEL[kategori]} · {selectedInfo?.nama || <span style={{ color: '#ef4444' }}>pilih penalangging</span>}
+                {KATEGORI_LABEL[kategori]} · {selectedInfo?.nama || <span style={{ color: '#ef4444' }}>pilih staf</span>}
               </span>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
               <span style={{ fontWeight: 700, fontSize: 18 }}>{formatRupiah(totalAmount)}</span>
-              <button onClick={handleSubmit} disabled={submitting || !selectedPenalangging}
-                style={{ ...s.btnPrimary, opacity: submitting || !selectedPenalangging ? 0.5 : 1 }}>
+              <button onClick={handleSubmit} disabled={submitting || !selectedStaf}
+                style={{ ...s.btnPrimary, opacity: submitting || !selectedStaf ? 0.5 : 1 }}>
                 {submitting ? 'Menyimpan...' : 'Simpan →'}
               </button>
             </div>
