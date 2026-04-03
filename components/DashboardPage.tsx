@@ -43,7 +43,7 @@ export default function DashboardPage({ email }: { email?: string }) {
     selesai: data.filter(r => r.status === 'selesai'),
   }
 
-  // Posisi per penalangging — breakdown per transaksi
+  // Posisi per Staf — breakdown per transaksi
   const byPenalangging = data.reduce((acc, r) => {
     const key = r.dibayar_oleh || 'Tidak diketahui'
     if (!acc[key]) acc[key] = {
@@ -119,8 +119,8 @@ export default function DashboardPage({ email }: { email?: string }) {
               })}
             </div>
 
-            {/* Posisi per penalangging */}
-            <h2 style={s.sectionTitle}>Posisi per Penalangging</h2>
+            {/* Posisi per Staf */}
+            <h2 style={s.sectionTitle}>Posisi per Staf</h2>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               {Object.values(byPenalangging).sort((a, b) => b.total - a.total).map(p => {
                 const isExpanded = expandedPenalangging === p.nama
