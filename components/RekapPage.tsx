@@ -130,8 +130,12 @@ export default function RekapPage({ email }: { email?: string }) {
           {/* Expandable filter panel */}
           {showFilters && (
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, paddingBottom: 12 }}>
-              <input type="date" value={filterFrom} onChange={e => setFilterFrom(e.target.value)} style={s.dateInput} />
-              <input type="date" value={filterTo} onChange={e => setFilterTo(e.target.value)} style={s.dateInput} />
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: '1 1 260px' }}>
+                <span style={{ fontSize: 12, color: '#6b7280', fontWeight: 600, whiteSpace: 'nowrap' }}>Dari</span>
+                <input type="date" value={filterFrom} onChange={e => setFilterFrom(e.target.value)} style={{ ...s.dateInput, flex: 1 }} />
+                <span style={{ fontSize: 12, color: '#6b7280', fontWeight: 600, whiteSpace: 'nowrap' }}>s.d.</span>
+                <input type="date" value={filterTo} onChange={e => setFilterTo(e.target.value)} style={{ ...s.dateInput, flex: 1 }} />
+              </div>
               <select value={filterKategori} onChange={e => setFilterKategori(e.target.value as Kategori | '')} style={s.dateInput}>
                 <option value="">Semua Kategori</option>
                 {(Object.entries(KATEGORI_LABEL) as [Kategori, string][]).map(([val, label]) => (
