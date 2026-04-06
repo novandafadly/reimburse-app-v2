@@ -1,24 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase-server'
-
 export const runtime = 'nodejs'
 export const maxDuration = 60
-
 export async function POST(req: NextRequest) {
   try {
     const supabase = await createServerSupabaseClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
     const formData = await req.formData()
     const entriesRaw = formData.get('entries') as string
     const entries = JSON.parse(entriesRaw)
     const results = []
-
     for (let i = 0; i < entries.length; i++) {
       const entry = entries[i]
       const files = formData.getAll(`files_${i}`) as File[]
-
+      const evidenceFiles = formData.getAll(`evidence_${i}`) as File[]
       const { data: transaksi, error: tErr } = await supabase
         .from('transaksi')
         .insert({
@@ -35,10 +31,9 @@ export async function POST(req: NextRequest) {
         })
         .select()
         .single()
-
       if (tErr) throw new Error(`Gagal simpan transaksi: ${tErr.message}`)
-
-      const lampiranPaths: string[] = []
+      // Upload nota files (jenis: 'nota')
+      const lampiranRows: { transaksi_id: string; storage_path: string; jenis: string }[] = []
       for (let fi = 0; fi < files.length; fi++) {
         const file = files[fi]
         const bytes = await file.arrayBuffer()
@@ -46,19 +41,25 @@ export async function POST(req: NextRequest) {
         const { error: uploadErr } = await supabase.storage
           .from('lampiran-nota')
           .upload(path, bytes, { contentType: 'image/jpeg', upsert: true })
-        if (uploadErr) console.error('Upload error:', uploadErr)
-        else lampiranPaths.push(path)
+        if (uploadErr) console.error('Upload nota error:', uploadErr)
+        else lampiranRows.push({ transaksi_id: transaksi.id, storage_path: path, jenis: 'nota' })
       }
-
-      if (lampiranPaths.length > 0) {
-        await supabase.from('lampiran').insert(
-          lampiranPaths.map(path => ({ transaksi_id: transaksi.id, storage_path: path }))
-        )
+      // Upload evidence files (jenis: 'evidence_rapat')
+      for (let ei = 0; ei < evidenceFiles.length; ei++) {
+        const file = evidenceFiles[ei]
+        const bytes = await file.arrayBuffer()
+        const path = `${user.id}/${transaksi.id}/evidence_${ei + 1}.jpg`
+        const { error: uploadErr } = await supabase.storage
+          .from('lampiran-nota')
+          .upload(path, bytes, { contentType: 'image/jpeg', upsert: true })
+        if (uploadErr) console.error('Upload evidence error:', uploadErr)
+        else lampiranRows.push({ transaksi_id: transaksi.id, storage_path: path, jenis: 'evidence_rapat' })
       }
-
-      results.push({ id: transaksi.id, lampiranCount: lampiranPaths.length })
+      if (lampiranRows.length > 0) {
+        await supabase.from('lampiran').insert(lampiranRows)
+      }
+      results.push({ id: transaksi.id, notaCount: files.length, evidenceCount: evidenceFiles.length })
     }
-
     return NextResponse.json({ success: true, results })
   } catch (err) {
     console.error('Submit error:', err)
