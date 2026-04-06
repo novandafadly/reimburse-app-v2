@@ -1,20 +1,18 @@
 'use client'
-
 import { useState, useEffect } from 'react'
 import Navbar from '@/components/Navbar'
 import { createClient, type Transaksi, type Kategori, KATEGORI_LABEL } from '@/lib/supabase'
-
 function formatRupiah(n: number) { return 'Rp ' + n.toLocaleString('id-ID') }
 function formatTanggal(d: string) {
   return new Date(d).toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit', year: 'numeric' })
 }
-
 const STATUS_CONFIG = {
   belum: { label: 'Belum Diajukan', color: '#991b1b', bg: '#fef2f2', border: '#fecaca' },
   proses: { label: 'Dalam Proses', color: '#92400e', bg: '#fffbeb', border: '#fde68a' },
   selesai: { label: 'Sudah Direimburse', color: '#166534', bg: '#f0fdf4', border: '#bbf7d0' },
 }
-
+// Pisahkan map untuk nota dan evidence
+type LampiranMap = Record<string, string[]>
 export default function RekapPage({ email }: { email?: string }) {
   const supabase = createClient()
   const [data, setData] = useState<Transaksi[]>([])
@@ -27,9 +25,9 @@ export default function RekapPage({ email }: { email?: string }) {
   const [editData, setEditData] = useState<Partial<Transaksi>>({})
   const [saving, setSaving] = useState(false)
   const [deleteId, setDeleteId] = useState<string | null>(null)
-  const [lampiranMap, setLampiranMap] = useState<Record<string, string[]>>({})
+  const [notaMap, setNotaMap] = useState<LampiranMap>({})
+  const [evidenceMap, setEvidenceMap] = useState<LampiranMap>({})
   const [showFilters, setShowFilters] = useState(false)
-
   const fetchData = async () => {
     setLoading(true)
     let q = supabase.from('transaksi').select('*, lampiran(*)').order('tanggal', { ascending: true })
@@ -39,33 +37,43 @@ export default function RekapPage({ email }: { email?: string }) {
     if (filterKategori) q = q.eq('kategori', filterKategori)
     const { data: rows } = await q
     setData(rows || [])
-
-    const newMap: Record<string, string[]> = {}
+    const newNotaMap: LampiranMap = {}
+    const newEvidenceMap: LampiranMap = {}
     for (const row of (rows || [])) {
       if (row.lampiran?.length) {
-        const urls = await Promise.all(
-          row.lampiran.map(async (l: { storage_path: string }) => {
-            const { data: signed } = await supabase.storage.from('lampiran-nota').createSignedUrl(l.storage_path, 3600)
-            return signed?.signedUrl || ''
-          })
-        )
-        newMap[row.id] = urls.filter(Boolean)
+        const notaLampiran = row.lampiran.filter((l: { jenis: string }) => l.jenis !== 'evidence_rapat')
+        const evidenceLampiran = row.lampiran.filter((l: { jenis: string }) => l.jenis === 'evidence_rapat')
+        if (notaLampiran.length) {
+          const urls = await Promise.all(
+            notaLampiran.map(async (l: { storage_path: string }) => {
+              const { data: signed } = await supabase.storage.from('lampiran-nota').createSignedUrl(l.storage_path, 3600)
+              return signed?.signedUrl || ''
+            })
+          )
+          newNotaMap[row.id] = urls.filter(Boolean)
+        }
+        if (evidenceLampiran.length) {
+          const urls = await Promise.all(
+            evidenceLampiran.map(async (l: { storage_path: string }) => {
+              const { data: signed } = await supabase.storage.from('lampiran-nota').createSignedUrl(l.storage_path, 3600)
+              return signed?.signedUrl || ''
+            })
+          )
+          newEvidenceMap[row.id] = urls.filter(Boolean)
+        }
       }
     }
-    setLampiranMap(newMap)
+    setNotaMap(newNotaMap)
+    setEvidenceMap(newEvidenceMap)
     setLoading(false)
   }
-
   useEffect(() => { fetchData() }, [filterFrom, filterTo, filterStatus, filterKategori])
-
   const totalAmount = data.reduce((sum, r) => sum + r.jumlah, 0)
   const hasFilter = filterFrom || filterTo || filterStatus || filterKategori
-
   const updateStatus = async (id: string, status: 'belum' | 'proses' | 'selesai') => {
     await supabase.from('transaksi').update({ status }).eq('id', id)
     setData(prev => prev.map(r => r.id === id ? { ...r, status } : r))
   }
-
   const startEdit = (row: Transaksi) => {
     setEditId(row.id)
     setEditData({
@@ -76,7 +84,6 @@ export default function RekapPage({ email }: { email?: string }) {
       kategori: row.kategori
     })
   }
-
   const saveEdit = async () => {
     if (!editId) return
     setSaving(true)
@@ -90,30 +97,26 @@ export default function RekapPage({ email }: { email?: string }) {
     }).eq('id', editId)
     setEditId(null); setSaving(false); fetchData()
   }
-
   const confirmDelete = async () => {
     if (!deleteId) return
     await supabase.from('transaksi').delete().eq('id', deleteId)
     setDeleteId(null); fetchData()
   }
-
   const periodLabel = () => {
     if (filterFrom && filterTo) return `${formatTanggal(filterFrom)} s.d. ${formatTanggal(filterTo)}`
     if (filterFrom) return `Dari ${formatTanggal(filterFrom)}`
     if (filterTo) return `s.d. ${formatTanggal(filterTo)}`
     return 'Semua periode'
   }
-
   const kategoriLabel = filterKategori ? KATEGORI_LABEL[filterKategori] : 'Semua Kategori'
-
+  // Cek apakah ada data rapat yang punya evidence
+  const hasEvidence = data.some(row => row.kategori === 'rapat_pertemuan' && (evidenceMap[row.id]?.length ?? 0) > 0)
   return (
     <div>
       <Navbar email={email} />
-
       {/* Filter bar */}
       <div style={s.filterBar} className="no-print">
         <div style={{ maxWidth: 1000, margin: '0 auto', padding: '0 16px' }}>
-          {/* Top row: toggle filter + export */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, height: 48 }}>
             <button onClick={() => setShowFilters(p => !p)} style={{ ...s.btnSmall, display: 'flex', alignItems: 'center', gap: 4 }}>
               🔍 Filter {hasFilter ? '●' : ''}
@@ -127,7 +130,6 @@ export default function RekapPage({ email }: { email?: string }) {
               <button onClick={() => window.print()} style={s.btnPrint}>🖨️ Export PDF</button>
             </div>
           </div>
-          {/* Expandable filter panel */}
           {showFilters && (
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, paddingBottom: 12 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: '1 1 260px' }}>
@@ -150,14 +152,12 @@ export default function RekapPage({ email }: { email?: string }) {
           )}
         </div>
       </div>
-
       <main style={s.main}>
         {/* Print header */}
         <div style={{ display: 'none' }} className="print-header">
           <h2 style={{ textAlign: 'center', fontWeight: 700, fontSize: 14, margin: '0 0 2px' }}>Rekap {kategoriLabel}</h2>
           <p style={{ textAlign: 'center', fontSize: 12, margin: '0 0 16px', color: '#374151' }}>{periodLabel()}</p>
         </div>
-
         {loading ? (
           <div style={{ textAlign: 'center', padding: 60, color: '#9ca3af' }}>Memuat data...</div>
         ) : data.length === 0 ? (
@@ -168,13 +168,51 @@ export default function RekapPage({ email }: { email?: string }) {
           </div>
         ) : (
           <>
-            {/* Total summary */}
+            {/* Total summary (screen only) */}
             <div style={s.totalBar} className="no-print">
               <span style={{ fontSize: 13, color: '#6b7280' }}>{data.length} transaksi</span>
               <span style={{ fontWeight: 700, fontSize: 16, color: '#ea580c' }}>{formatRupiah(totalAmount)}</span>
             </div>
 
-            {/* Scrollable table */}
+            {/* ─── EVIDENCE SECTION: tampil sebelum rekap, di print & screen ─── */}
+            {hasEvidence && (
+              <div style={{ marginBottom: 28 }}>
+                {/* Label section — screen */}
+                <h3 style={{ fontSize: 14, fontWeight: 700, marginBottom: 4, color: '#374151' }} className="no-print">
+                  📎 Evidence Rapat & Pertemuan
+                </h3>
+                {/* Label section — print */}
+                <h3 style={{ fontSize: 13, fontWeight: 700, marginBottom: 12, color: '#374151', display: 'none' }} className="print-evidence-header">
+                  Lampiran Evidence Rapat &amp; Pertemuan
+                </h3>
+                {data.map((row, idx) => {
+                  if (row.kategori !== 'rapat_pertemuan') return null
+                  const urls = evidenceMap[row.id]
+                  if (!urls?.length) return null
+                  return (
+                    <div key={row.id} style={{ marginBottom: 20, pageBreakInside: 'avoid' }}>
+                      <p style={{ fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 8 }}>
+                        {idx + 1}. {row.keterangan} — {formatTanggal(row.tanggal)} — {formatRupiah(row.jumlah)}
+                      </p>
+                      <div style={{
+                        display: 'grid',
+                        gridTemplateColumns: urls.length === 1 ? '1fr' : '1fr 1fr',
+                        gap: 8, width: '100%'
+                      }}>
+                        {urls.map((url, i) => (
+                          <img key={i} src={url} alt={`evidence ${i + 1}`}
+                            style={{ width: '100%', height: 'auto', maxHeight: 320, objectFit: 'contain', borderRadius: 6, border: '1px solid #e5e7eb', background: '#fafafa' }} />
+                        ))}
+                      </div>
+                    </div>
+                  )
+                })}
+                {/* Divider sebelum rekap tabel */}
+                <div style={{ borderTop: '2px solid #e5e7eb', marginTop: 8 }} />
+              </div>
+            )}
+
+            {/* ─── REKAP TABLE ─── */}
             <div style={s.tableWrap}>
               <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
                 <table style={s.table}>
@@ -219,7 +257,15 @@ export default function RekapPage({ email }: { email?: string }) {
                           <>
                             <td style={s.td}>{idx + 1}</td>
                             <td style={{ ...s.td, whiteSpace: 'nowrap' }}>{formatTanggal(row.tanggal)}</td>
-                            <td style={{ ...s.td, fontWeight: 500, minWidth: 120 }}>{row.keterangan}</td>
+                            <td style={{ ...s.td, fontWeight: 500, minWidth: 120 }}>
+                              {row.keterangan}
+                              {/* Badge evidence di kolom keterangan (screen only) */}
+                              {row.kategori === 'rapat_pertemuan' && (evidenceMap[row.id]?.length ?? 0) > 0 && (
+                                <span className="no-print" style={{ marginLeft: 6, fontSize: 10, background: '#dcfce7', color: '#166534', border: '1px solid #86efac', borderRadius: 4, padding: '1px 5px', fontWeight: 600, verticalAlign: 'middle' }}>
+                                  {evidenceMap[row.id].length} evidence
+                                </span>
+                              )}
+                            </td>
                             <td style={s.td} className="screen-only">
                               <span style={{ fontSize: 11, padding: '2px 6px', borderRadius: 4, background: row.kategori === 'makan_minum' ? '#fef3c7' : '#ede9fe', color: row.kategori === 'makan_minum' ? '#92400e' : '#5b21b6', fontWeight: 600, whiteSpace: 'nowrap' }}>
                                 {row.kategori === 'makan_minum' ? '🍽️' : '📋'} {KATEGORI_LABEL[row.kategori]}
@@ -264,12 +310,15 @@ export default function RekapPage({ email }: { email?: string }) {
               </div>
             </div>
 
-            {/* Lampiran grid 2x2 */}
-            {Object.keys(lampiranMap).length > 0 && (
+            {/* ─── LAMPIRAN NOTA (setelah rekap) ─── */}
+            {Object.keys(notaMap).length > 0 && (
               <div style={{ marginTop: 28 }}>
                 <h3 style={{ fontSize: 14, fontWeight: 700, marginBottom: 14, color: '#374151' }} className="no-print">Lampiran Nota</h3>
+                <h3 style={{ fontSize: 13, fontWeight: 700, marginBottom: 12, color: '#374151', display: 'none' }} className="print-nota-header">
+                  Lampiran Nota
+                </h3>
                 {data.map((row, idx) => {
-                  const urls = lampiranMap[row.id]
+                  const urls = notaMap[row.id]
                   if (!urls?.length) return null
                   return (
                     <div key={row.id} style={{ marginBottom: 28, pageBreakInside: 'avoid' }}>
@@ -290,7 +339,6 @@ export default function RekapPage({ email }: { email?: string }) {
           </>
         )}
       </main>
-
       {deleteId && (
         <div style={s.modalOverlay}>
           <div style={s.modal}>
@@ -303,23 +351,25 @@ export default function RekapPage({ email }: { email?: string }) {
           </div>
         </div>
       )}
-
       <style>{`
         @media print {
           .no-print { display: none !important; }
           .print-header { display: block !important; }
+          .print-evidence-header { display: block !important; }
+          .print-nota-header { display: block !important; }
           .screen-only { display: none !important; }
           body { background: white !important; }
           nav { display: none !important; }
         }
         @media screen {
           .print-header { display: none !important; }
+          .print-evidence-header { display: none !important; }
+          .print-nota-header { display: none !important; }
         }
       `}</style>
     </div>
   )
 }
-
 const s: Record<string, React.CSSProperties> = {
   filterBar: { background: '#fff', borderBottom: '1px solid #e5e7eb' },
   dateInput: { padding: '7px 10px', border: '1px solid #d1d5db', borderRadius: 6, fontSize: 13, fontFamily: 'inherit', flex: '1 1 140px', minWidth: 120 },
