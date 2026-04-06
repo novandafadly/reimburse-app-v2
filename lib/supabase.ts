@@ -29,6 +29,14 @@ export const KATEGORI_LABEL: Record<Kategori, string> = {
   rapat_pertemuan: 'Rapat & Pertemuan',
 }
 
+export type Lampiran = {
+  id: string
+  transaksi_id: string
+  storage_path: string
+  created_at: string
+  jenis: 'nota' | 'evidence_rapat'
+}
+
 export type Transaksi = {
   id: string
   tanggal: string
@@ -44,11 +52,4 @@ export type Transaksi = {
   status: 'belum' | 'proses' | 'selesai'
   kategori: Kategori
   lampiran?: Lampiran[]
-}
-
-export type Lampiran = {
-  id: string
-  transaksi_id: string
-  storage_path: string
-  created_at: string
 }
