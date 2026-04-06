@@ -2,17 +2,20 @@
 import { useState, useEffect } from 'react'
 import Navbar from '@/components/Navbar'
 import { createClient, type Transaksi, type Kategori, KATEGORI_LABEL } from '@/lib/supabase'
+
 function formatRupiah(n: number) { return 'Rp ' + n.toLocaleString('id-ID') }
 function formatTanggal(d: string) {
   return new Date(d).toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit', year: 'numeric' })
 }
+
 const STATUS_CONFIG = {
   belum: { label: 'Belum Diajukan', color: '#991b1b', bg: '#fef2f2', border: '#fecaca' },
   proses: { label: 'Dalam Proses', color: '#92400e', bg: '#fffbeb', border: '#fde68a' },
   selesai: { label: 'Sudah Direimburse', color: '#166534', bg: '#f0fdf4', border: '#bbf7d0' },
 }
-// Pisahkan map untuk nota dan evidence
+
 type LampiranMap = Record<string, string[]>
+
 export default function RekapPage({ email }: { email?: string }) {
   const supabase = createClient()
   const [data, setData] = useState<Transaksi[]>([])
@@ -28,6 +31,7 @@ export default function RekapPage({ email }: { email?: string }) {
   const [notaMap, setNotaMap] = useState<LampiranMap>({})
   const [evidenceMap, setEvidenceMap] = useState<LampiranMap>({})
   const [showFilters, setShowFilters] = useState(false)
+
   const fetchData = async () => {
     setLoading(true)
     let q = supabase.from('transaksi').select('*, lampiran(*)').order('tanggal', { ascending: true })
@@ -37,6 +41,7 @@ export default function RekapPage({ email }: { email?: string }) {
     if (filterKategori) q = q.eq('kategori', filterKategori)
     const { data: rows } = await q
     setData(rows || [])
+
     const newNotaMap: LampiranMap = {}
     const newEvidenceMap: LampiranMap = {}
     for (const row of (rows || [])) {
@@ -67,13 +72,17 @@ export default function RekapPage({ email }: { email?: string }) {
     setEvidenceMap(newEvidenceMap)
     setLoading(false)
   }
-  useEffect(() => { fetchData() }, [filterFrom, filterTo, filterStatus, filterKategori])
+
+  useEffect(() => { fetchData() }, [filterFrom, filterTo, filterStatus, filterKategori]) // eslint-disable-line react-hooks/exhaustive-deps
+
   const totalAmount = data.reduce((sum, r) => sum + r.jumlah, 0)
   const hasFilter = filterFrom || filterTo || filterStatus || filterKategori
+
   const updateStatus = async (id: string, status: 'belum' | 'proses' | 'selesai') => {
     await supabase.from('transaksi').update({ status }).eq('id', id)
     setData(prev => prev.map(r => r.id === id ? { ...r, status } : r))
   }
+
   const startEdit = (row: Transaksi) => {
     setEditId(row.id)
     setEditData({
@@ -81,9 +90,10 @@ export default function RekapPage({ email }: { email?: string }) {
       deskripsi: row.deskripsi || '', dibayar_oleh: row.dibayar_oleh || '',
       bank_penalangging: row.bank_penalangging || '',
       no_rek_penalangging: row.no_rek_penalangging || '',
-      kategori: row.kategori
+      kategori: row.kategori,
     })
   }
+
   const saveEdit = async () => {
     if (!editId) return
     setSaving(true)
@@ -97,23 +107,27 @@ export default function RekapPage({ email }: { email?: string }) {
     }).eq('id', editId)
     setEditId(null); setSaving(false); fetchData()
   }
+
   const confirmDelete = async () => {
     if (!deleteId) return
     await supabase.from('transaksi').delete().eq('id', deleteId)
     setDeleteId(null); fetchData()
   }
+
   const periodLabel = () => {
     if (filterFrom && filterTo) return `${formatTanggal(filterFrom)} s.d. ${formatTanggal(filterTo)}`
     if (filterFrom) return `Dari ${formatTanggal(filterFrom)}`
     if (filterTo) return `s.d. ${formatTanggal(filterTo)}`
     return 'Semua periode'
   }
+
   const kategoriLabel = filterKategori ? KATEGORI_LABEL[filterKategori] : 'Semua Kategori'
-  // Cek apakah ada data rapat yang punya evidence
   const hasEvidence = data.some(row => row.kategori === 'rapat_pertemuan' && (evidenceMap[row.id]?.length ?? 0) > 0)
+
   return (
     <div>
       <Navbar email={email} />
+
       {/* Filter bar */}
       <div style={s.filterBar} className="no-print">
         <div style={{ maxWidth: 1000, margin: '0 auto', padding: '0 16px' }}>
@@ -152,12 +166,14 @@ export default function RekapPage({ email }: { email?: string }) {
           )}
         </div>
       </div>
+
       <main style={s.main}>
         {/* Print header */}
         <div style={{ display: 'none' }} className="print-header">
           <h2 style={{ textAlign: 'center', fontWeight: 700, fontSize: 14, margin: '0 0 2px' }}>Rekap {kategoriLabel}</h2>
           <p style={{ textAlign: 'center', fontSize: 12, margin: '0 0 16px', color: '#374151' }}>{periodLabel()}</p>
         </div>
+
         {loading ? (
           <div style={{ textAlign: 'center', padding: 60, color: '#9ca3af' }}>Memuat data...</div>
         ) : data.length === 0 ? (
@@ -168,21 +184,21 @@ export default function RekapPage({ email }: { email?: string }) {
           </div>
         ) : (
           <>
-            {/* Total summary (screen only) */}
+            {/* Total summary */}
             <div style={s.totalBar} className="no-print">
               <span style={{ fontSize: 13, color: '#6b7280' }}>{data.length} transaksi</span>
               <span style={{ fontWeight: 700, fontSize: 16, color: '#ea580c' }}>{formatRupiah(totalAmount)}</span>
             </div>
 
-            {/* ─── EVIDENCE SECTION: tampil sebelum rekap, di print & screen ─── */}
+            {/* ── EVIDENCE SECTION: sebelum rekap tabel ── */}
             {hasEvidence && (
-              <div style={{ marginBottom: 28 }}>
-                {/* Label section — screen */}
-                <h3 style={{ fontSize: 14, fontWeight: 700, marginBottom: 4, color: '#374151' }} className="no-print">
-                  📎 Evidence Rapat & Pertemuan
+              <div style={{ marginBottom: 24 }}>
+                {/* Header screen */}
+                <h3 style={{ fontSize: 14, fontWeight: 700, marginBottom: 14, color: '#374151' }} className="no-print">
+                  📎 Evidence Rapat &amp; Pertemuan
                 </h3>
-                {/* Label section — print */}
-                <h3 style={{ fontSize: 13, fontWeight: 700, marginBottom: 12, color: '#374151', display: 'none' }} className="print-evidence-header">
+                {/* Header print */}
+                <h3 style={{ fontSize: 13, fontWeight: 700, marginBottom: 14, color: '#374151', display: 'none', pageBreakAfter: 'avoid' }} className="print-evidence-header">
                   Lampiran Evidence Rapat &amp; Pertemuan
                 </h3>
                 {data.map((row, idx) => {
@@ -191,14 +207,10 @@ export default function RekapPage({ email }: { email?: string }) {
                   if (!urls?.length) return null
                   return (
                     <div key={row.id} style={{ marginBottom: 20, pageBreakInside: 'avoid' }}>
-                      <p style={{ fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 8 }}>
+                      <p style={{ fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 8, pageBreakAfter: 'avoid' }}>
                         {idx + 1}. {row.keterangan} — {formatTanggal(row.tanggal)} — {formatRupiah(row.jumlah)}
                       </p>
-                      <div style={{
-                        display: 'grid',
-                        gridTemplateColumns: urls.length === 1 ? '1fr' : '1fr 1fr',
-                        gap: 8, width: '100%'
-                      }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: urls.length === 1 ? '1fr' : '1fr 1fr', gap: 8 }}>
                         {urls.map((url, i) => (
                           <img key={i} src={url} alt={`evidence ${i + 1}`}
                             style={{ width: '100%', height: 'auto', maxHeight: 320, objectFit: 'contain', borderRadius: 6, border: '1px solid #e5e7eb', background: '#fafafa' }} />
@@ -207,12 +219,11 @@ export default function RekapPage({ email }: { email?: string }) {
                     </div>
                   )
                 })}
-                {/* Divider sebelum rekap tabel */}
-                <div style={{ borderTop: '2px solid #e5e7eb', marginTop: 8 }} />
+                <div style={{ borderTop: '2px solid #e5e7eb', marginTop: 8, marginBottom: 20 }} />
               </div>
             )}
 
-            {/* ─── REKAP TABLE ─── */}
+            {/* ── REKAP TABLE ── */}
             <div style={s.tableWrap}>
               <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
                 <table style={s.table}>
@@ -221,7 +232,7 @@ export default function RekapPage({ email }: { email?: string }) {
                       <th style={s.th}>No</th>
                       <th style={s.th}>Tanggal</th>
                       <th style={s.th}>Keterangan</th>
-                      <th style={{ ...s.th }} className="screen-only">Kategori</th>
+                      <th style={s.th} className="screen-only">Kategori</th>
                       <th style={s.th}>Jumlah</th>
                       <th style={s.th} className="screen-only">Staf</th>
                       <th style={s.th} className="screen-only">Status</th>
@@ -259,9 +270,8 @@ export default function RekapPage({ email }: { email?: string }) {
                             <td style={{ ...s.td, whiteSpace: 'nowrap' }}>{formatTanggal(row.tanggal)}</td>
                             <td style={{ ...s.td, fontWeight: 500, minWidth: 120 }}>
                               {row.keterangan}
-                              {/* Badge evidence di kolom keterangan (screen only) */}
                               {row.kategori === 'rapat_pertemuan' && (evidenceMap[row.id]?.length ?? 0) > 0 && (
-                                <span className="no-print" style={{ marginLeft: 6, fontSize: 10, background: '#dcfce7', color: '#166534', border: '1px solid #86efac', borderRadius: 4, padding: '1px 5px', fontWeight: 600, verticalAlign: 'middle' }}>
+                                <span className="no-print" style={{ marginLeft: 6, fontSize: 10, background: '#ede9fe', color: '#5b21b6', border: '1px solid #ddd8fe', borderRadius: 4, padding: '1px 5px', fontWeight: 600, verticalAlign: 'middle' }}>
                                   {evidenceMap[row.id].length} evidence
                                 </span>
                               )}
@@ -310,22 +320,38 @@ export default function RekapPage({ email }: { email?: string }) {
               </div>
             </div>
 
-            {/* ─── LAMPIRAN NOTA (setelah rekap) ─── */}
+            {/* ── LAMPIRAN NOTA (setelah rekap) ──
+                Fix page break: wrap seluruh section (header + semua item) dalam 1 div,
+                lalu tiap item pakai pageBreakInside avoid.
+                Header pakai pageBreakAfter avoid supaya tidak terpisah dari item pertama. */}
             {Object.keys(notaMap).length > 0 && (
               <div style={{ marginTop: 28 }}>
-                <h3 style={{ fontSize: 14, fontWeight: 700, marginBottom: 14, color: '#374151' }} className="no-print">Lampiran Nota</h3>
-                <h3 style={{ fontSize: 13, fontWeight: 700, marginBottom: 12, color: '#374151', display: 'none' }} className="print-nota-header">
+                {/* Header screen */}
+                <h3
+                  style={{ fontSize: 14, fontWeight: 700, color: '#374151', marginTop: 0, marginBottom: 14, pageBreakAfter: 'avoid' }}
+                  className="no-print"
+                >
                   Lampiran Nota
                 </h3>
+                {/* Header print — digabung dengan item pertama lewat wrapper */}
+                <div className="print-nota-block" style={{ display: 'none' }}>
+                  <h3 style={{ fontSize: 13, fontWeight: 700, color: '#374151', margin: '0 0 14px', pageBreakAfter: 'avoid' }}>
+                    Lampiran Nota
+                  </h3>
+                </div>
+
                 {data.map((row, idx) => {
                   const urls = notaMap[row.id]
                   if (!urls?.length) return null
                   return (
+                    /* pageBreakInside: avoid mencegah item terpotong antar halaman.
+                       Untuk item pertama, ini juga mencegah header terpisah karena
+                       browser tidak bisa break di dalam block ini. */
                     <div key={row.id} style={{ marginBottom: 28, pageBreakInside: 'avoid' }}>
-                      <p style={{ fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 10 }}>
+                      <p style={{ fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 10, pageBreakAfter: 'avoid' }}>
                         {idx + 1}. {row.keterangan} — {formatTanggal(row.tanggal)} — {formatRupiah(row.jumlah)}
                       </p>
-                      <div style={{ display: 'grid', gridTemplateColumns: urls.length === 1 ? '1fr' : '1fr 1fr', gap: 8, width: '100%' }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: urls.length === 1 ? '1fr' : '1fr 1fr', gap: 8 }}>
                         {urls.map((url, i) => (
                           <img key={i} src={url} alt={`nota ${i + 1}`}
                             style={{ width: '100%', height: 'auto', maxHeight: 380, objectFit: 'contain', borderRadius: 6, border: '1px solid #e5e7eb', background: '#fafafa' }} />
@@ -339,6 +365,7 @@ export default function RekapPage({ email }: { email?: string }) {
           </>
         )}
       </main>
+
       {deleteId && (
         <div style={s.modalOverlay}>
           <div style={s.modal}>
@@ -351,12 +378,13 @@ export default function RekapPage({ email }: { email?: string }) {
           </div>
         </div>
       )}
+
       <style>{`
         @media print {
           .no-print { display: none !important; }
           .print-header { display: block !important; }
           .print-evidence-header { display: block !important; }
-          .print-nota-header { display: block !important; }
+          .print-nota-block { display: block !important; }
           .screen-only { display: none !important; }
           body { background: white !important; }
           nav { display: none !important; }
@@ -364,12 +392,13 @@ export default function RekapPage({ email }: { email?: string }) {
         @media screen {
           .print-header { display: none !important; }
           .print-evidence-header { display: none !important; }
-          .print-nota-header { display: none !important; }
+          .print-nota-block { display: none !important; }
         }
       `}</style>
     </div>
   )
 }
+
 const s: Record<string, React.CSSProperties> = {
   filterBar: { background: '#fff', borderBottom: '1px solid #e5e7eb' },
   dateInput: { padding: '7px 10px', border: '1px solid #d1d5db', borderRadius: 6, fontSize: 13, fontFamily: 'inherit', flex: '1 1 140px', minWidth: 120 },
