@@ -1,13 +1,10 @@
 'use client'
-
 import { useState, useCallback, useRef, useEffect } from 'react'
 import Navbar from '@/components/Navbar'
 import { createClient, type Staf, type Kategori, KATEGORI_LABEL } from '@/lib/supabase'
 import type { NotaEntry, ParsedNota } from '@/lib/types'
-
 function generateId() { return Math.random().toString(36).slice(2, 9) }
 function formatRupiah(n: number) { return 'Rp ' + n.toLocaleString('id-ID') }
-
 async function compressImage(file: File, maxWidthPx = 1200, quality = 0.7): Promise<File> {
   return new Promise((resolve) => {
     const img = new Image()
@@ -26,7 +23,6 @@ async function compressImage(file: File, maxWidthPx = 1200, quality = 0.7): Prom
     img.src = url
   })
 }
-
 function ConfidenceBadge({ level }: { level: string }) {
   const map: Record<string, { label: string; color: string }> = {
     high: { label: 'Akurat', color: '#166534' },
@@ -36,7 +32,6 @@ function ConfidenceBadge({ level }: { level: string }) {
   const { label, color } = map[level] || map.medium
   return <span style={{ fontSize: 11, fontWeight: 600, color, border: `1px solid ${color}40`, borderRadius: 4, padding: '2px 7px', background: color + '12' }}>{label}</span>
 }
-
 export default function UploadPage({ email }: { email?: string }) {
   const supabase = createClient()
   const [entries, setEntries] = useState<NotaEntry[]>([])
@@ -48,14 +43,11 @@ export default function UploadPage({ email }: { email?: string }) {
   const [selectedStaf, setSelectedStaf] = useState<string>('')
   const [kategori, setKategori] = useState<Kategori>('makan_minum')
   const dropRef = useRef<HTMLDivElement>(null)
-
   useEffect(() => {
     supabase.from('penalangging').select('*').eq('aktif', true).order('nama')
       .then(({ data }) => { if (data) setStafList(data) })
   }, [])
-
   const selectedInfo = stafList.find(p => p.id === selectedStaf)
-
   const addEntry = useCallback(async (files: File[]) => {
     if (!files.length) return
     const compressed = await Promise.all(files.map(f => compressImage(f)))
@@ -68,7 +60,6 @@ export default function UploadPage({ email }: { email?: string }) {
     setEntries(prev => [...prev, entry])
     parseEntry(entry)
   }, [])
-
   const parseEntry = async (entry: NotaEntry) => {
     setEntries(prev => prev.map(e => e.id === entry.id ? { ...e, status: 'parsing' } : e))
     const form = new FormData()
@@ -85,33 +76,57 @@ export default function UploadPage({ email }: { email?: string }) {
       setEntries(prev => prev.map(e => e.id === entry.id ? { ...e, status: 'error', errorMsg: 'Network error' } : e))
     }
   }
-
   const updateField = (id: string, field: keyof ParsedNota, value: string | number) => {
     setEntries(prev => prev.map(e => e.id === id ? { ...e, edited: { ...e.edited, [field]: value } } : e))
   }
-
+  // Handler untuk tambah evidence files ke entry tertentu
+  const addEvidenceToEntry = useCallback(async (entryId: string, files: File[]) => {
+    if (!files.length) return
+    const compressed = await Promise.all(files.map(f => compressImage(f)))
+    setEntries(prev => prev.map(e => {
+      if (e.id !== entryId) return e
+      const existingFiles = e.evidenceFiles || []
+      const existingPreviews = e.evidencePreviews || []
+      return {
+        ...e,
+        evidenceFiles: [...existingFiles, ...compressed],
+        evidencePreviews: [...existingPreviews, ...compressed.map(f => URL.createObjectURL(f))],
+      }
+    }))
+  }, [])
+  const removeEvidenceFromEntry = (entryId: string, fileIdx: number) => {
+    setEntries(prev => prev.map(e => {
+      if (e.id !== entryId) return e
+      const newFiles = (e.evidenceFiles || []).filter((_, i) => i !== fileIdx)
+      const newPreviews = (e.evidencePreviews || []).filter((_, i) => i !== fileIdx)
+      return { ...e, evidenceFiles: newFiles, evidencePreviews: newPreviews }
+    }))
+  }
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault(); setDragging(false)
     const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'))
     if (files.length) addEntry(files)
   }, [addEntry])
-
   const totalAmount = entries.filter(e => e.status === 'done').reduce((sum, e) => sum + (Number(e.edited?.jumlah) || 0), 0)
   const allDone = entries.length > 0 && entries.every(e => e.status === 'done' || e.status === 'error')
   const hasValid = entries.some(e => e.status === 'done')
-
   const handleSubmit = async () => {
     if (!hasValid) return
     setSubmitting(true); setSubmitError('')
     const formData = new FormData()
     const payload = entries.filter(e => e.status === 'done').map((e, i) => {
       e.files.forEach(f => formData.append(`files_${i}`, f))
+      // Kirim evidence files terpisah
+      if (kategori === 'rapat_pertemuan' && e.evidenceFiles?.length) {
+        e.evidenceFiles.forEach(f => formData.append(`evidence_${i}`, f))
+      }
       return {
         tanggal: e.edited?.tanggal || '',
         keterangan: e.edited?.keterangan || '',
         jumlah: Number(e.edited?.jumlah) || 0,
         deskripsi: e.edited?.deskripsi || '',
         fileCount: e.files.length,
+        evidenceCount: kategori === 'rapat_pertemuan' ? (e.evidenceFiles?.length || 0) : 0,
         kategori,
         dibayar_oleh: selectedInfo?.nama || null,
         bank_penalangging: selectedInfo?.bank || null,
@@ -128,7 +143,6 @@ export default function UploadPage({ email }: { email?: string }) {
       setSubmitError(err instanceof Error ? err.message : 'Gagal submit')
     } finally { setSubmitting(false) }
   }
-
   if (submitted) return (
     <div>
       <Navbar email={email} />
@@ -147,7 +161,6 @@ export default function UploadPage({ email }: { email?: string }) {
       </main>
     </div>
   )
-
   return (
     <div>
       <Navbar email={email} />
@@ -164,10 +177,8 @@ export default function UploadPage({ email }: { email?: string }) {
             </div>
           )}
         </header>
-
         {/* Setting card */}
         <div style={s.settingCard}>
-          {/* Kategori */}
           <div style={{ marginBottom: 14 }}>
             <label style={s.fieldLabel}>Kategori</label>
             <div style={{ display: 'flex', gap: 8 }}>
@@ -179,7 +190,6 @@ export default function UploadPage({ email }: { email?: string }) {
               ))}
             </div>
           </div>
-          {/* Staf */}
           <div>
             <label style={s.fieldLabel}>Dibayar oleh (Staf)</label>
             <select value={selectedStaf} onChange={e => setSelectedStaf(e.target.value)} style={s.select}>
@@ -195,7 +205,6 @@ export default function UploadPage({ email }: { email?: string }) {
             )}
           </div>
         </div>
-
         {/* Drop zone */}
         <div ref={dropRef} onDrop={handleDrop}
           onDragOver={e => { e.preventDefault(); setDragging(true) }}
@@ -208,18 +217,20 @@ export default function UploadPage({ email }: { email?: string }) {
           <p style={{ fontWeight: 600, color: '#374151', marginBottom: 3, fontSize: 15 }}>Tap untuk pilih foto nota</p>
           <p style={{ fontSize: 12, color: '#9ca3af' }}>Pilih beberapa sekaligus untuk 1 transaksi</p>
         </div>
-
         {entries.length > 0 && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {entries.map((entry, idx) => (
               <EntryCard key={entry.id} entry={entry} index={idx + 1}
+                kategori={kategori}
                 onUpdate={updateField}
                 onRemove={id => setEntries(prev => prev.filter(e => e.id !== id))}
-                onRetry={() => parseEntry(entry)} />
+                onRetry={() => parseEntry(entry)}
+                onAddEvidence={addEvidenceToEntry}
+                onRemoveEvidence={removeEvidenceFromEntry}
+              />
             ))}
           </div>
         )}
-
         {allDone && hasValid && (
           <div style={s.submitBar}>
             <div style={{ minWidth: 0 }}>
@@ -234,7 +245,6 @@ export default function UploadPage({ email }: { email?: string }) {
             </button>
           </div>
         )}
-
         {submitError && (
           <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, padding: '12px 14px', color: '#991b1b', fontSize: 14 }}>
             ⚠️ {submitError}
@@ -244,13 +254,16 @@ export default function UploadPage({ email }: { email?: string }) {
     </div>
   )
 }
-
-function EntryCard({ entry, index, onUpdate, onRemove, onRetry }: {
-  entry: NotaEntry; index: number
+function EntryCard({ entry, index, kategori, onUpdate, onRemove, onRetry, onAddEvidence, onRemoveEvidence }: {
+  entry: NotaEntry; index: number; kategori: Kategori
   onUpdate: (id: string, field: keyof ParsedNota, value: string | number) => void
   onRemove: (id: string) => void; onRetry: () => void
+  onAddEvidence: (entryId: string, files: File[]) => void
+  onRemoveEvidence: (entryId: string, fileIdx: number) => void
 }) {
   const [showPreviews, setShowPreviews] = useState(false)
+  const evidenceInputId = `evidence-${entry.id}`
+  const isRapat = kategori === 'rapat_pertemuan'
   return (
     <div style={s.card}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -310,12 +323,57 @@ function EntryCard({ entry, index, onUpdate, onRemove, onRetry }: {
               💡 {entry.edited.catatan}
             </div>
           )}
+
+          {/* ─── Evidence upload: hanya muncul kalau kategori rapat_pertemuan ─── */}
+          {isRapat && (
+            <div style={{ borderTop: '1px solid #f3f4f6', paddingTop: 10 }}>
+              <label style={s.fieldLabel}>📎 Evidence Rapat</label>
+              <p style={{ fontSize: 11, color: '#9ca3af', margin: '0 0 8px' }}>
+                Foto undangan, absensi, atau dokumentasi rapat
+              </p>
+              {/* Preview evidence yang sudah diupload */}
+              {(entry.evidencePreviews?.length ?? 0) > 0 && (
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
+                  {entry.evidencePreviews!.map((src, i) => (
+                    <div key={i} style={{ position: 'relative', flexShrink: 0 }}>
+                      <img src={src} alt={`evidence ${i + 1}`}
+                        style={{ height: 80, width: 80, objectFit: 'cover', borderRadius: 6, border: '1px solid #e5e7eb', display: 'block' }} />
+                      <button
+                        onClick={() => onRemoveEvidence(entry.id, i)}
+                        style={{
+                          position: 'absolute', top: -6, right: -6,
+                          background: '#ef4444', color: '#fff', border: 'none', borderRadius: '50%',
+                          width: 18, height: 18, fontSize: 10, cursor: 'pointer', lineHeight: '18px',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0,
+                        }}>✕</button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {/* Tombol tambah evidence */}
+              <input id={evidenceInputId} type="file" accept="image/*" multiple style={{ display: 'none' }}
+                onChange={e => {
+                  const files = Array.from(e.target.files || [])
+                  if (files.length) onAddEvidence(entry.id, files)
+                  e.target.value = ''
+                }} />
+              <button
+                onClick={() => document.getElementById(evidenceInputId)?.click()}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 6,
+                  background: '#f0fdf4', border: '1px dashed #86efac', borderRadius: 7,
+                  padding: '7px 12px', fontSize: 12, color: '#166534', cursor: 'pointer',
+                  fontFamily: 'inherit', fontWeight: 600,
+                }}>
+                + Tambah foto evidence
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>
   )
 }
-
 const s: Record<string, React.CSSProperties> = {
   main: { maxWidth: 680, margin: '0 auto', padding: '20px 16px 100px', display: 'flex', flexDirection: 'column', gap: 16 },
   header: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' },
