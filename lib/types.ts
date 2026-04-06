@@ -11,6 +11,8 @@ export interface NotaEntry {
   id: string
   files: File[]
   previews: string[]
+  evidenceFiles?: File[]
+  evidencePreviews?: string[]
   status: 'idle' | 'parsing' | 'done' | 'error'
   parsed?: ParsedNota
   edited?: Partial<ParsedNota>
